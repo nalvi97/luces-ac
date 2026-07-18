@@ -49,21 +49,31 @@ Efectos = ids de modo de [WS2812FX](https://github.com/kitesurfer1404/WS2812FX).
 2. En GitHub: **Settings → Pages → Source: Deploy from a branch → main → /docs**.
 3. La app queda en `https://TU_USUARIO.github.io/luces-ac/` → abrirla **en Bluefy** y guardarla en favoritos.
 
-## Flashear (sesión con USB)
+## Flashear
 
-1. Conectar el ESP por USB (cable de datos) y detectar placa y puerto:
-   `arduino-cli board list` (o `esptool chip_id` para identificar el chip exacto).
-2. Instalar core y librerías (una vez):
-   ```
-   arduino-cli core install esp32:esp32
-   arduino-cli lib install "NimBLE-Arduino" "WS2812FX" "Adafruit NeoPixel"
-   ```
-3. Compilar y subir (FQBN según chip: `esp32:esp32:esp32` o `esp32:esp32:esp32s3`):
-   ```
-   arduino-cli compile -b esp32:esp32:esp32 firmware/principal
-   arduino-cli upload  -b esp32:esp32:esp32 -p COMX firmware/principal
-   ```
-4. Igual con `firmware/secundario` en el otro ESP.
+Ambos firmwares están **compilados y verificados** (core esp32 3.3.10, NimBLE-Arduino 2.5.0, WS2812FX 1.4.7, Adafruit NeoPixel 1.15.5). Hay dos rutas; la A no necesita Arduino.
+
+### Ruta A — Navegador (recomendada, sin instalar nada)
+
+1. En Chrome o Edge, abrir **https://espressif.github.io/esptool-js/**
+2. Conectar el ESP por USB (cable de datos) → botón **Connect** → elegir el puerto.
+   *Si no aparece ningún puerto: falta el driver CH340 o CP210x (habitual en placas clónicas).*
+3. La consola dice qué chip es (p. ej. `Chip is ESP32-S3`). Elegir el `.bin` de `binarios/` que corresponda:
+   - `principal-esp32.bin` / `principal-esp32s3.bin` → el ESP de los interruptores (2 tiras)
+   - `secundario-esp32.bin` / `secundario-esp32s3.bin` → el ESP de la tira Ambiente
+4. **Flash Address: `0x0`** → Program → esperar a "Done" → botón Reset de la placa.
+5. **Etiquetar la placa** (principal / secundario) y repetir con la otra.
+
+### Ruta B — Arduino IDE
+
+1. Boards Manager → **esp32 by Espressif Systems 3.x** (con 2.x NO compila el secundario).
+2. Library Manager → **NimBLE-Arduino** y **WS2812FX**.
+3. Abrir el `.ino` → placa "ESP32 Dev Module" o "ESP32S3 Dev Module" según chip → Subir.
+   (En S3, activar *USB CDC On Boot* para ver el monitor serie.)
+
+### Comprobación tras flashear el principal
+
+Sin conectar tiras aún: en Bluefy abrir `https://nalvi97.github.io/luces-ac/` → Conectar → debe aparecer **AC-Luces**. Si conecta, todo el camino BLE funciona.
 
 Volver a WLED siempre es posible reflasheando desde https://install.wled.me.
 
