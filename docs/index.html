@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
@@ -110,7 +110,7 @@
   .btn.primary{background:var(--accent);color:var(--accent-ink);border:none}
   .btn.ghost{background:none;border:1px solid var(--line);color:var(--text)}
 
-  /* Portada de conexiÃ³n */
+  /* Portada de conexión */
   #cover{
     position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;
     align-items:center;justify-content:center;gap:18px;padding:32px;text-align:center;z-index:10;
@@ -207,7 +207,7 @@
   </section>
 
   <div class="meta">
-    <span id="metaInfo"><b>app v1.4</b> Â· firmware â€”</span>
+    <span id="metaInfo"><b>app v1.4</b> · firmware —</span>
     <button id="cfgBtn">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
       Ajustes
@@ -216,15 +216,15 @@
 </main>
 
 <dialog id="cfg">
-  <h3>Ajustes de instalaciÃ³n</h3>
-  <p>El nÃºmero de LEDs se guarda en el propio ESP32, que se reinicia al guardar (la app se desconecta unos segundos; vuelve a conectar).</p>
-  <div class="field"><label for="n0">LEDs Â· Techo Izq</label><input type="number" id="n0" value="60" min="1" max="1000"></div>
-  <div class="field"><label for="n1">LEDs Â· Techo Dcha</label><input type="number" id="n1" value="60" min="1" max="1000"></div>
-  <div class="field"><label for="n2">LEDs Â· Ambiente</label><input type="number" id="n2" value="60" min="1" max="1000"></div>
+  <h3>Ajustes de instalación</h3>
+  <p>El número de LEDs se guarda en el propio ESP32, que se reinicia al guardar (la app se desconecta unos segundos; vuelve a conectar).</p>
+  <div class="field"><label for="n0">LEDs · Techo Izq</label><input type="number" id="n0" value="60" min="1" max="1000"></div>
+  <div class="field"><label for="n1">LEDs · Techo Dcha</label><input type="number" id="n1" value="60" min="1" max="1000"></div>
+  <div class="field"><label for="n2">LEDs · Ambiente</label><input type="number" id="n2" value="60" min="1" max="1000"></div>
   <p style="margin:14px 0 10px">Si una tira muestra los colores cambiados (p. ej. el rojo sale verde), prueba otro orden hasta que el rojo sea rojo:</p>
-  <div class="field"><label for="o0">Orden color Â· Izq</label><select id="o0"></select></div>
-  <div class="field"><label for="o1">Orden color Â· Dcha</label><select id="o1"></select></div>
-  <div class="field"><label for="o2">Orden color Â· Ambiente</label><select id="o2"></select></div>
+  <div class="field"><label for="o0">Orden color · Izq</label><select id="o0"></select></div>
+  <div class="field"><label for="o1">Orden color · Dcha</label><select id="o1"></select></div>
+  <div class="field"><label for="o2">Orden color · Ambiente</label><select id="o2"></select></div>
   <div class="dlg-actions">
     <button class="btn ghost" id="cfgClose">Cerrar</button>
     <button class="btn primary" id="cfgSave">Guardar en el ESP</button>
@@ -237,7 +237,7 @@
 (function(){
 "use strict";
 
-/* â•â•â•â•â•â•â•â•â•â•â• Referencias DOM (todas primero: nada de TDZ) â•â•â•â•â•â•â•â•â•â•â• */
+/* ═══════════ Referencias DOM (todas primero: nada de TDZ) ═══════════ */
 const $=s=>document.querySelector(s);
 const cover=$("#cover"), coverBtn=$("#coverBtn"), coverErr=$("#coverErr");
 const connPill=$("#connPill"), connTxt=$("#connTxt"), powerBtn=$("#powerBtn");
@@ -254,19 +254,19 @@ oInputs.forEach(sel=>{
 });
 const FW_ESPERADO=4;
 
-/* â•â•â•â•â•â•â•â•â•â•â• Constantes de protocolo (== firmware) â•â•â•â•â•â•â•â•â•â•â• */
+/* ═══════════ Constantes de protocolo (== firmware) ═══════════ */
 const UUID_SVC="7e57c0de-a001-4f0e-9a2b-1c2d3e4f5a01";
 const UUID_CMD="7e57c0de-a002-4f0e-9a2b-1c2d3e4f5a01";
 const UUID_EST="7e57c0de-a003-4f0e-9a2b-1c2d3e4f5a01";
 const UUID_CFG="7e57c0de-a004-4f0e-9a2b-1c2d3e4f5a01";
 const MAGIC=0xAC1E, OP_SET=1, OP_POWER=3;
 
-/* Modos WS2812FX (id real de la librerÃ­a) */
-const FX=[[0,"EstÃ¡tico"],[2,"Respirar"],[3,"Barrido"],[11,"ArcoÃ­ris"],[12,"ArcoÃ­ris ciclo"],
-          [13,"EscÃ¡ner"],[16,"Teatro"],[18,"Corriente"],[19,"Destellos"],[23,"Chispas"],
+/* Modos WS2812FX (id real de la librería) */
+const FX=[[0,"Estático"],[2,"Respirar"],[3,"Barrido"],[11,"Arcoíris"],[12,"Arcoíris ciclo"],
+          [13,"Escáner"],[16,"Teatro"],[18,"Corriente"],[19,"Destellos"],[23,"Chispas"],
           [43,"Larson"],[44,"Cometa"],[45,"Fuegos art."],[48,"Fuego"]];
 
-/* â•â•â•â•â•â•â•â•â•â•â• Estado de la app (espejo del firmware) â•â•â•â•â•â•â•â•â•â•â• */
+/* ═══════════ Estado de la app (espejo del firmware) ═══════════ */
 const zs=[0,1,2].map(()=>({on:true,r:255,g:170,b:80,bri:150,fx:0,speed:1000}));
 let sel="all", sync=false, activeScene=null;
 let device=null, chCmd=null, chCfg=null, chEst=null;
@@ -274,7 +274,7 @@ let device=null, chCmd=null, chCfg=null, chEst=null;
 const targets=()=>(sync||sel==="all")?[0,1,2]:[Number(sel)];
 const first=()=>zs[targets()[0]];
 
-/* â•â•â•â•â•â•â•â•â•â•â• Color â•â•â•â•â•â•â•â•â•â•â• */
+/* ═══════════ Color ═══════════ */
 function hsv2rgb(h,s,v){
   s/=100;v/=100;
   const c=v*s,x=c*(1-Math.abs((h/60)%2-1)),m=v-c;let r,g,b;
@@ -291,11 +291,11 @@ function rgb2hs(r,g,b){
   return [h, mx?d/mx*100:0];
 }
 
-/* Velocidad: slider 1-100 â†’ ms 5000..100 (log) */
+/* Velocidad: slider 1-100 → ms 5000..100 (log) */
 const spd2ms=v=>Math.round(5000*Math.pow(100/5000,(v-1)/99));
 const ms2spd=ms=>Math.round(1+99*Math.log(Math.min(Math.max(ms,100),5000)/5000)/Math.log(100/5000));
 
-/* â•â•â•â•â•â•â•â•â•â•â• BLE â•â•â•â•â•â•â•â•â•â•â• */
+/* ═══════════ BLE ═══════════ */
 function pkt(mask,z){
   const b=new ArrayBuffer(15),d=new DataView(b);
   d.setUint16(0,MAGIC,true); d.setUint8(2,OP_SET); d.setUint8(3,mask);
@@ -321,7 +321,7 @@ async function enviarRaw(buf){
   sending=false;
   if(notifPend){const d=notifPend;notifPend=null;estadoDesde(d)}
 }
-/* EnvÃ­a los mismos valores a todas las zonas objetivo (escenas, colorâ€¦) en 1 paquete */
+/* Envía los mismos valores a todas las zonas objetivo (escenas, color…) en 1 paquete */
 function enviarComun(vals){
   const mask=targets().reduce((m,i)=>m|(1<<i),0);
   targets().forEach(i=>Object.assign(zs[i],vals));
@@ -331,7 +331,7 @@ function enviarComun(vals){
 
 function estadoDesde(dv){
   if(dv.byteLength<25)return;
-  /* Con envÃ­os en vuelo, el "eco" del ESP va retrasado: se aplica al vaciar la cola */
+  /* Con envíos en vuelo, el "eco" del ESP va retrasado: se aplica al vaciar la cola */
   if(sending||cola.length){
     notifPend=new DataView(dv.buffer.slice(dv.byteOffset,dv.byteOffset+dv.byteLength));
     return;
@@ -343,19 +343,19 @@ function estadoDesde(dv){
   }
   const fw=dv.getUint8(0);
   metaInfo.innerHTML=(fw<FW_ESPERADO)
-    ? `<b>app v1.4</b> Â· <span style="color:var(--bad)">firmware v${fw} antiguo â€” reflashea principal-esp32.bin</span>`
-    : `<b>app v1.4</b> Â· firmware v${fw}`;
+    ? `<b>app v1.4</b> · <span style="color:var(--bad)">firmware v${fw} antiguo — reflashea principal-esp32.bin</span>`
+    : `<b>app v1.4</b> · firmware v${fw}`;
   syncUI();
 }
 
 async function conectar(){
   coverErr.textContent="";
   if(!navigator.bluetooth){
-    coverErr.textContent="Este navegador no tiene Web Bluetooth. En iPhone abre esta pÃ¡gina con la app Bluefy.";
+    coverErr.textContent="Este navegador no tiene Web Bluetooth. En iPhone abre esta página con la app Bluefy.";
     return;
   }
   try{
-    coverBtn.textContent="Buscandoâ€¦";
+    coverBtn.textContent="Buscando…";
     /* Filtro doble: por servicio (viaja siempre en el anuncio) o por nombre */
     device=await navigator.bluetooth.requestDevice({filters:[{services:[UUID_SVC]},{namePrefix:"AC-Luces"}],optionalServices:[UUID_SVC]});
     device.addEventListener("gattserverdisconnected",desconectado);
@@ -368,7 +368,7 @@ async function conectar(){
     try{
       await chEst.startNotifications();
       chEst.addEventListener("characteristicvaluechanged",e=>estadoDesde(e.target.value));
-    }catch(e){ /* sin notificaciones: no es crÃ­tico */ }
+    }catch(e){ /* sin notificaciones: no es crítico */ }
     try{
       const cfg=await chCfg.readValue();
       for(let i=0;i<3;i++)nInputs[i].value=cfg.getUint16(i*2,true);
@@ -399,7 +399,7 @@ setInterval(async()=>{
   try{estadoDesde(await chEst.readValue())}catch(e){}
 },4000);
 
-/* â•â•â•â•â•â•â•â•â•â•â• UI: zonas y sync â•â•â•â•â•â•â•â•â•â•â• */
+/* ═══════════ UI: zonas y sync ═══════════ */
 function refreshDots(){
   zonesEl.querySelectorAll(".zone").forEach(b=>{
     if(b.dataset.z==="all")return;
@@ -422,7 +422,7 @@ syncSw.addEventListener("click",()=>{
   toast(sync?"Tiras sincronizadas":"Control independiente");
 });
 
-/* â•â•â•â•â•â•â•â•â•â•â• Encendido/apagado (zonas seleccionadas) â•â•â•â•â•â•â•â•â•â•â• */
+/* ═══════════ Encendido/apagado (zonas seleccionadas) ═══════════ */
 powerBtn.addEventListener("click",()=>{
   const encender=!targets().some(i=>zs[i].on);
   targets().forEach(i=>zs[i].on=encender);
@@ -434,7 +434,7 @@ powerBtn.addEventListener("click",()=>{
   toast(encender?"Encendido":"Apagado");
 });
 
-/* â•â•â•â•â•â•â•â•â•â•â• Escenas â•â•â•â•â•â•â•â•â•â•â• */
+/* ═══════════ Escenas ═══════════ */
 const IC={
   sol:'<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/>',
   libro:'<path d="M4 19V5a2 2 0 0 1 2-2h13v16H6.5A2.5 2.5 0 0 0 4 21.5V19"/><path d="M4 19a2.5 2.5 0 0 1 2.5-2.5H19"/>',
@@ -443,9 +443,9 @@ const IC={
   fiesta:'<path d="M5 21 8 8l8 8zM12 4l.5 2M18 5l-1.5 1.5M20 11h-2"/>',
   ola:'<path d="M3 12c2-3 4-3 6 0s4 3 6 0 4-3 6 0M3 18c2-3 4-3 6 0s4 3 6 0 4-3 6 0"/>'
 };
-/* hsv de referencia â†’ rgb fijo; bri 0-255; speed en ms */
+/* hsv de referencia → rgb fijo; bri 0-255; speed en ms */
 const SCENES=[
-  {n:"Luz cÃ¡lida",i:"sol",   v:{...rgbv(35,55),  bri:217,fx:0, speed:1000,on:true}},
+  {n:"Luz cálida",i:"sol",   v:{...rgbv(35,55),  bri:217,fx:0, speed:1000,on:true}},
   {n:"Lectura",  i:"libro",  v:{...rgbv(45,12),  bri:255,fx:0, speed:1000,on:true}},
   {n:"Cine",     i:"cine",   v:{...rgbv(28,75),  bri:56, fx:0, speed:1000,on:true}},
   {n:"Noche",    i:"luna",   v:{...rgbv(12,90),  bri:18, fx:0, speed:1000,on:true}},
@@ -460,7 +460,7 @@ SCENES.forEach((s,idx)=>{
   b.addEventListener("click",()=>{
     enviarComun({...s.v});
     activeScene=idx; refreshScenes(); syncUI();
-    toast(`Escena Â«${s.n}Â»`);
+    toast(`Escena «${s.n}»`);
   });
   scenesEl.appendChild(b);
 });
@@ -468,7 +468,7 @@ function refreshScenes(){
   scenesEl.querySelectorAll(".scene").forEach((b,i)=>b.classList.toggle("active",i===activeScene));
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â• Rueda de color â•â•â•â•â•â•â•â•â•â•â• */
+/* ═══════════ Rueda de color ═══════════ */
 const W=wheel.width,R=W/2,wctx=wheel.getContext("2d");
 (function paintWheel(){
   const img=wctx.createImageData(W,W);
@@ -506,8 +506,8 @@ wheel.addEventListener("pointerdown",e=>{dragging=true;wheel.setPointerCapture(e
 wheel.addEventListener("pointermove",e=>{if(dragging)pickColor(e,false)});
 wheel.addEventListener("pointerup",e=>{dragging=false;pickColor(e,true)});
 
-/* â•â•â•â•â•â•â•â•â•â•â• Blancos rÃ¡pidos â•â•â•â•â•â•â•â•â•â•â• */
-[["CÃ¡lido 2700K",33,45],["Neutro 4000K",40,18],["FrÃ­o 6000K",210,8]].forEach(([n,h,s])=>{
+/* ═══════════ Blancos rápidos ═══════════ */
+[["Cálido 2700K",33,45],["Neutro 4000K",40,18],["Frío 6000K",210,8]].forEach(([n,h,s])=>{
   const[r,g,b]=hsv2rgb(h,s,100);
   const btn=document.createElement("button");
   btn.className="swatch";
@@ -519,7 +519,7 @@ wheel.addEventListener("pointerup",e=>{dragging=false;pickColor(e,true)});
   swatchesEl.appendChild(btn);
 });
 
-/* â•â•â•â•â•â•â•â•â•â•â• Sliders â•â•â•â•â•â•â•â•â•â•â• */
+/* ═══════════ Sliders ═══════════ */
 let lastBri=0;
 bri.addEventListener("input",()=>{
   briOut.textContent=bri.value+"%";
@@ -538,14 +538,14 @@ spd.addEventListener("input",()=>{
 });
 spd.addEventListener("change",()=>enviarComun({speed:spd2ms(Number(spd.value))}));
 
-/* â•â•â•â•â•â•â•â•â•â•â• Efectos â•â•â•â•â•â•â•â•â•â•â• */
+/* ═══════════ Efectos ═══════════ */
 FX.forEach(([id,label])=>{
   const b=document.createElement("button");
   b.className="fx";b.textContent=label;b.dataset.fx=id;
   b.addEventListener("click",()=>{
     enviarComun({fx:id,on:true});
     activeScene=null;refreshScenes();syncFx();
-    toast(`Efecto Â«${label}Â»`);
+    toast(`Efecto «${label}»`);
   });
   fxrow.appendChild(b);
 });
@@ -562,11 +562,11 @@ function syncUI(){
   setThumb();syncFx();refreshDots();
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â• Ajustes â•â•â•â•â•â•â•â•â•â•â• */
+/* ═══════════ Ajustes ═══════════ */
 $("#cfgBtn").addEventListener("click",()=>dlg.showModal());
 $("#cfgClose").addEventListener("click",()=>dlg.close());
 $("#cfgSave").addEventListener("click",async()=>{
-  if(!chCfg){toast("Sin conexiÃ³n");return}
+  if(!chCfg){toast("Sin conexión");return}
   const buf=new ArrayBuffer(9),d=new DataView(buf);
   for(let i=0;i<3;i++)d.setUint16(i*2,Math.min(1000,Math.max(1,Number(nInputs[i].value)||60)),true);
   for(let i=0;i<3;i++)d.setUint8(6+i,Number(oInputs[i].value)||0);
@@ -574,10 +574,10 @@ $("#cfgSave").addEventListener("click",async()=>{
     await chCfg.writeValue(buf);
   }catch(e){ /* el ESP se reinicia y corta antes de confirmar: es normal */ }
   dlg.close();
-  toast("Guardado â€” el ESP se reiniciaâ€¦");
+  toast("Guardado — el ESP se reinicia…");
 });
 
-/* â•â•â•â•â•â•â•â•â•â•â• Toast â•â•â•â•â•â•â•â•â•â•â• */
+/* ═══════════ Toast ═══════════ */
 let toastTimer;
 function toast(msg){
   toastEl.textContent=msg;toastEl.classList.add("show");
