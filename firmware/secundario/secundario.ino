@@ -23,6 +23,7 @@
 #define MAGIC 0xAC1E
 #define OP_SET    1
 #define OP_CONFIG 2
+#define OP_HB     4   // latido: "estoy vivo", lo escucha el principal
 
 struct __attribute__((packed)) Pkt {
   uint16_t magic;
@@ -50,6 +51,7 @@ neoPixelType ordenTipo(uint8_t o) {
 
 Preferences prefs;
 WS2812FX* tira;
+uint8_t bcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
 // El callback de ESP-NOW corre en el hilo WiFi: guardamos y aplicamos en loop()
 volatile bool pendiente = false;
@@ -59,18 +61,22 @@ void alRecibir(const esp_now_recv_info_t* info, const uint8_t* data, int len) {
   if (len < (int)sizeof(Pkt)) return;
   Pkt p; memcpy(&p, data, sizeof(Pkt));
   if (p.magic != MAGIC || !(p.mask & 0b100)) return;
+  if (p.op == OP_HB) return;   // ignora latidos de otros
   ultimo = p;
   pendiente = true;
 }
 
 void aplicar(const Pkt& p) {
   if (p.op == OP_CONFIG) {
+    Serial.printf("[RX] CONFIG: %u LEDs, orden %u -> guardo y reinicio\n", p.count, p.orden);
     prefs.putUShort("n2", p.count);
     prefs.putUChar("o2", p.orden);
     delay(100);
     ESP.restart();
     return;
   }
+  Serial.printf("[RX] SET: on=%u rgb=(%u,%u,%u) bri=%u fx=%u speed=%u\n",
+                p.on, p.r, p.g, p.b, p.bri, p.fx, p.speed);
   // Quirk WS2812FX: brillo 0 = "sin escalado" (=máximo). Apagar = stop().
   if (!p.on) { tira->stop(); return; }
   if (!tira->isRunning()) tira->start();
@@ -99,7 +105,12 @@ void setup() {
   esp_wifi_set_channel(ESPNOW_CANAL, WIFI_SECOND_CHAN_NONE);
   if (esp_now_init() == ESP_OK) {
     esp_now_register_recv_cb(alRecibir);
-    Serial.println("[OK] Secundario escuchando ESP-NOW");
+    esp_now_peer_info_t peer = {};
+    memcpy(peer.peer_addr, bcast, 6);
+    peer.channel = ESPNOW_CANAL;
+    esp_now_add_peer(&peer);
+    Serial.printf("[OK] Secundario escuchando ESP-NOW · MAC %s · canal %d · %u LEDs · orden %u\n",
+                  WiFi.macAddress().c_str(), ESPNOW_CANAL, n, o);
   } else {
     Serial.println("[ESP-NOW] error al iniciar");
   }
@@ -110,5 +121,13 @@ void loop() {
   if (pendiente) {
     pendiente = false;
     aplicar(ultimo);
+  }
+
+  // Latido cada 3 s: el principal lo vigila y la app muestra "Ambiente ✓ / sin señal"
+  static uint32_t tHB = 0;
+  if (millis() - tHB > 3000) {
+    tHB = millis();
+    Pkt p = {}; p.magic = MAGIC; p.op = OP_HB; p.mask = 0b100;
+    esp_now_send(bcast, (const uint8_t*)&p, sizeof(p));
   }
 }

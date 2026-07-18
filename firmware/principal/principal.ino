@@ -39,7 +39,8 @@ static const char* UUID_CFG = "7e57c0de-a004-4f0e-9a2b-1c2d3e4f5a01";
 #define OP_SET    1
 #define OP_CONFIG 2
 #define OP_POWER  3
-#define FW_VER    4   // se publica en el primer byte del estado BLE
+#define OP_HB     4   // latido del secundario
+#define FW_VER    5   // se publica en el primer byte del estado BLE
 
 struct __attribute__((packed)) Pkt {
   uint16_t magic;
@@ -77,10 +78,11 @@ WS2812FX* tiraB;
 
 NimBLECharacteristic* chEst = nullptr;
 uint8_t bcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+volatile uint32_t ultimoHB = 0;   // último latido ESP-NOW del secundario
 
-// ── Estado → BLE (25 bytes: versión + 3 zonas × 8) ──────────
-void notificarEstado() {
-  uint8_t buf[25];
+// ── Estado → BLE (26 bytes: versión + 3 zonas × 8 + edad del latido) ──
+void ponerEstado(bool notificar) {
+  uint8_t buf[26];
   buf[0] = FW_VER;
   for (int i = 0; i < 3; i++) {
     uint8_t* p = buf + 1 + i * 8;
@@ -88,7 +90,18 @@ void notificarEstado() {
     p[4] = zonas[i].bri; p[5] = zonas[i].fx;
     p[6] = zonas[i].speed & 0xFF; p[7] = zonas[i].speed >> 8;
   }
-  if (chEst) { chEst->setValue(buf, sizeof(buf)); chEst->notify(); }
+  // Segundos desde el último latido del secundario (255 = nunca visto)
+  uint32_t edad = ultimoHB ? (millis() - ultimoHB) / 1000 : 255;
+  buf[25] = edad > 255 ? 255 : (uint8_t)edad;
+  if (chEst) { chEst->setValue(buf, sizeof(buf)); if (notificar) chEst->notify(); }
+}
+void notificarEstado() { ponerEstado(true); }
+
+void alRecibirEspNow(const esp_now_recv_info_t*, const uint8_t* data, int len) {
+  if (len < (int)sizeof(Pkt)) return;
+  Pkt p; memcpy(&p, data, sizeof(Pkt));
+  if (p.magic != MAGIC) return;
+  if (p.op == OP_HB && (p.mask & 0b100)) ultimoHB = millis();
 }
 
 // ── Aplicar estado de una zona local a su tira ──────────────
@@ -222,6 +235,7 @@ void setup() {
     memcpy(peer.peer_addr, bcast, 6);
     peer.channel = ESPNOW_CANAL;
     esp_now_add_peer(&peer);
+    esp_now_register_recv_cb(alRecibirEspNow);   // escucha los latidos del secundario
   } else {
     Serial.println("[ESP-NOW] error al iniciar");
   }
@@ -265,4 +279,9 @@ void loop() {
   tiraA->service();
   tiraB->service();
   vigilarInterruptores();
+
+  // Refresca la característica de estado cada 2 s (para que la edad del
+  // latido esté al día cuando la app la sondea), sin notificar.
+  static uint32_t tEstado = 0;
+  if (millis() - tEstado > 2000) { tEstado = millis(); ponerEstado(false); }
 }

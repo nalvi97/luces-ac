@@ -46,6 +46,7 @@
   .zone i{width:10px;height:10px;border-radius:50%;background:#555}
   .zone[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
   .zone:disabled{opacity:.45;cursor:default}
+  .zone.offline{opacity:.45}
   .syncrow{display:flex;align-items:center;justify-content:space-between;padding:2px 4px}
   .syncrow label{font-size:14px;font-weight:600}
   .syncrow small{display:block;font-weight:400;color:var(--muted);font-size:12px;margin-top:2px}
@@ -207,7 +208,7 @@
   </section>
 
   <div class="meta">
-    <span id="metaInfo"><b>app v1.4</b> · firmware —</span>
+    <span id="metaInfo"><b>app v1.5</b> · firmware —</span>
     <button id="cfgBtn">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
       Ajustes
@@ -252,7 +253,7 @@ const ORDENES=["GRB (normal)","RGB","BGR","BRG","GBR","RBG"];
 oInputs.forEach(sel=>{
   ORDENES.forEach((n,v)=>{const o=document.createElement("option");o.value=v;o.textContent=n;sel.appendChild(o)});
 });
-const FW_ESPERADO=4;
+const FW_ESPERADO=5;
 
 /* ═══════════ Constantes de protocolo (== firmware) ═══════════ */
 const UUID_SVC="7e57c0de-a001-4f0e-9a2b-1c2d3e4f5a01";
@@ -342,9 +343,16 @@ function estadoDesde(dv){
     zs[i].bri=dv.getUint8(o+4); zs[i].fx=dv.getUint8(o+5); zs[i].speed=dv.getUint8(o+6)|(dv.getUint8(o+7)<<8);
   }
   const fw=dv.getUint8(0);
+  /* Byte 25 (fw≥5): segundos desde el último latido del ESP secundario (255 = nunca) */
+  let amb="";
+  if(dv.byteLength>=26){
+    const edad=dv.getUint8(25), vivo=edad<10;
+    amb=vivo?` · Ambiente ✓`:` · <span style="color:var(--bad)">Ambiente sin señal</span>`;
+    zonesEl.querySelector('[data-z="2"]').classList.toggle("offline",!vivo);
+  }
   metaInfo.innerHTML=(fw<FW_ESPERADO)
-    ? `<b>app v1.4</b> · <span style="color:var(--bad)">firmware v${fw} antiguo — reflashea principal-esp32.bin</span>`
-    : `<b>app v1.4</b> · firmware v${fw}`;
+    ? `<b>app v1.5</b> · <span style="color:var(--bad)">firmware v${fw} antiguo — reflashea principal-esp32.bin</span>`
+    : `<b>app v1.5</b> · firmware v${fw}${amb}`;
   syncUI();
 }
 
