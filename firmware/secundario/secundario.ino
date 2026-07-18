@@ -71,8 +71,10 @@ void aplicar(const Pkt& p) {
     ESP.restart();
     return;
   }
-  if (!p.on) { tira->setBrightness(0); return; }
-  tira->setBrightness(p.bri);
+  // Quirk WS2812FX: brillo 0 = "sin escalado" (=máximo). Apagar = stop().
+  if (!p.on) { tira->stop(); return; }
+  if (!tira->isRunning()) tira->start();
+  tira->setBrightness(p.bri > 0 ? p.bri : 1);
   tira->setColor(((uint32_t)p.r << 16) | ((uint32_t)p.g << 8) | p.b);
   tira->setMode(p.fx);
   tira->setSpeed(p.speed);

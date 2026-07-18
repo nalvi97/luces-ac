@@ -39,7 +39,7 @@ static const char* UUID_CFG = "7e57c0de-a004-4f0e-9a2b-1c2d3e4f5a01";
 #define OP_SET    1
 #define OP_CONFIG 2
 #define OP_POWER  3
-#define FW_VER    3   // se publica en el primer byte del estado BLE
+#define FW_VER    4   // se publica en el primer byte del estado BLE
 
 struct __attribute__((packed)) Pkt {
   uint16_t magic;
@@ -94,8 +94,11 @@ void notificarEstado() {
 // ── Aplicar estado de una zona local a su tira ──────────────
 void aplicarLocal(int i) {
   WS2812FX* t = (i == 0) ? tiraA : tiraB;
-  if (!zonas[i].on) { t->setBrightness(0); return; }
-  t->setBrightness(zonas[i].bri);
+  // Ojo, quirk de WS2812FX: setBrightness(0) significa "sin escalado" (=máximo),
+  // así que apagar de verdad es stop() (detiene el efecto y pone la tira en negro).
+  if (!zonas[i].on) { t->stop(); return; }
+  if (!t->isRunning()) t->start();
+  t->setBrightness(zonas[i].bri > 0 ? zonas[i].bri : 1);
   t->setColor(((uint32_t)zonas[i].r << 16) | ((uint32_t)zonas[i].g << 8) | zonas[i].b);
   t->setMode(zonas[i].fx);
   t->setSpeed(zonas[i].speed);
