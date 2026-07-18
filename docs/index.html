@@ -330,7 +330,8 @@ async function conectar(){
   }
   try{
     coverBtn.textContent="Buscando…";
-    device=await navigator.bluetooth.requestDevice({filters:[{namePrefix:"AC-Luces"}],optionalServices:[UUID_SVC]});
+    /* Filtro doble: por servicio (viaja siempre en el anuncio) o por nombre */
+    device=await navigator.bluetooth.requestDevice({filters:[{services:[UUID_SVC]},{namePrefix:"AC-Luces"}],optionalServices:[UUID_SVC]});
     device.addEventListener("gattserverdisconnected",desconectado);
     const gatt=await device.gatt.connect();
     const svc=await gatt.getPrimaryService(UUID_SVC);

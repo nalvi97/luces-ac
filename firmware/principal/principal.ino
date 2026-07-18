@@ -204,6 +204,10 @@ void setup() {
   svc->start();
   NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
   adv->addServiceUUID(UUID_SVC);
+  // El UUID de 128 bits llena el paquete de anuncio: el nombre va aparte,
+  // en la respuesta de escaneo, para que Bluefy/iOS lo vean siempre.
+  adv->setName("AC-Luces");
+  adv->enableScanResponse(true);
   adv->start();
 
   notificarEstado();
