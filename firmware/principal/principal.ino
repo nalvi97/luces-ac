@@ -149,15 +149,18 @@ class CfgCB : public NimBLECharacteristicCallbacks {
 };
 
 // ── Interruptores (2 estados: cualquier cambio = toggle) ────
-int swEstado[2];
-uint32_t swUltimo[2] = {0, 0};
+// Antirrebote real: la lectura debe mantenerse estable 50 ms antes de aceptarla,
+// para que el ruido eléctrico no encienda/apague tiras solo.
+int swEstable[2], swLectura[2];
+uint32_t swCambio[2] = {0, 0};
 
 void vigilarInterruptores() {
   const int pines[2] = {PIN_SW_A, PIN_SW_B};
   for (int i = 0; i < 2; i++) {
     int lect = digitalRead(pines[i]);
-    if (lect != swEstado[i] && millis() - swUltimo[i] > 60) {
-      swEstado[i] = lect; swUltimo[i] = millis();
+    if (lect != swLectura[i]) { swLectura[i] = lect; swCambio[i] = millis(); }
+    if (lect != swEstable[i] && millis() - swCambio[i] > 50) {
+      swEstable[i] = lect;
       zonas[i].on = !zonas[i].on;
       aplicarLocal(i);
       notificarEstado();
@@ -184,8 +187,8 @@ void setup() {
 
   pinMode(PIN_SW_A, INPUT_PULLUP);
   pinMode(PIN_SW_B, INPUT_PULLUP);
-  swEstado[0] = digitalRead(PIN_SW_A);
-  swEstado[1] = digitalRead(PIN_SW_B);
+  swEstable[0] = swLectura[0] = digitalRead(PIN_SW_A);
+  swEstable[1] = swLectura[1] = digitalRead(PIN_SW_B);
 
   // ESP-NOW (coexiste con BLE; ambos ESP en el canal 1)
   WiFi.mode(WIFI_STA);
