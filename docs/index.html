@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Luces AC</title>
+<style>
+  :root{
+    --bg:#14110c; --surface:#1f1a13; --surface-2:#2a2318; --line:#3a3122;
+    --text:#f2e9dc; --muted:#a69882; --accent:#ffb454; --accent-ink:#2a1c05;
+    --ok:#8fd49b; --bad:#e08484; color-scheme:dark;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);color:var(--text);
+    font-family:ui-rounded,-apple-system,BlinkMacSystemFont,"SF Pro Rounded","Segoe UI",Roboto,sans-serif;
+    min-height:100vh;display:flex;justify-content:center;
+  }
+  .app{width:100%;max-width:430px;padding:14px 16px 32px;display:flex;flex-direction:column;gap:18px}
+
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 2px}
+  .brand h1{margin:0;font-size:21px;font-weight:800;letter-spacing:.4px}
+  .brand span{font-size:11px;color:var(--muted);letter-spacing:1.4px;text-transform:uppercase}
+  .topbtns{display:flex;gap:8px}
+  .pill{
+    display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);
+    color:var(--text);font:inherit;font-size:13px;font-weight:600;padding:9px 14px;border-radius:999px;cursor:pointer;
+  }
+  .pill .dot{width:8px;height:8px;border-radius:50%;background:var(--bad);flex:none}
+  .pill.on .dot{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+  .pill.busy .dot{background:var(--accent);animation:pulse 1s infinite}
+  @keyframes pulse{50%{opacity:.25}}
+  .pill.icon{padding:9px 12px}
+  .pill svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round}
+
+  section{display:flex;flex-direction:column;gap:10px}
+  .sec-head h3{margin:0;font-size:11px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted)}
+
+  .zones{display:flex;gap:8px}
+  .zone{
+    flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;
+    border:1px solid var(--line);background:var(--surface);color:var(--muted);
+    font:inherit;font-size:12.5px;font-weight:650;padding:10px 0 9px;border-radius:12px;cursor:pointer;
+  }
+  .zone i{width:10px;height:10px;border-radius:50%;background:#555}
+  .zone[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+  .zone:disabled{opacity:.45;cursor:default}
+  .syncrow{display:flex;align-items:center;justify-content:space-between;padding:2px 4px}
+  .syncrow label{font-size:14px;font-weight:600}
+  .syncrow small{display:block;font-weight:400;color:var(--muted);font-size:12px;margin-top:2px}
+  .switch{position:relative;width:50px;height:30px;flex:none;border-radius:999px;background:var(--surface-2);
+    border:1px solid var(--line);cursor:pointer;padding:0;transition:background .2s}
+  .switch::after{content:"";position:absolute;top:2px;left:2px;width:24px;height:24px;border-radius:50%;
+    background:var(--muted);transition:transform .2s,background .2s}
+  .switch[aria-checked="true"]{background:var(--accent)}
+  .switch[aria-checked="true"]::after{transform:translateX(20px);background:var(--accent-ink)}
+
+  .scenes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .scene{display:flex;flex-direction:column;align-items:flex-start;gap:8px;border:1px solid var(--line);
+    background:var(--surface);border-radius:20px;padding:13px 12px 11px;color:var(--text);font:inherit;cursor:pointer;text-align:left}
+  .scene svg{width:20px;height:20px;stroke:var(--accent);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .scene b{font-size:13px;font-weight:700}
+  .scene.active{background:var(--surface-2);border-color:var(--accent)}
+
+  .colorbox{display:flex;gap:18px;align-items:center}
+  .wheelwrap{position:relative;width:172px;height:172px;flex:none}
+  .wheelwrap canvas{width:172px;height:172px;border-radius:50%;display:block;cursor:crosshair;touch-action:none}
+  .thumb{position:absolute;width:22px;height:22px;border-radius:50%;border:3px solid #fff;
+    box-shadow:0 1px 6px rgba(0,0,0,.6);transform:translate(-50%,-50%);pointer-events:none;left:86px;top:86px}
+  .swatches{display:flex;flex-direction:column;gap:9px;flex:1}
+  .swatch{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--surface);
+    border-radius:12px;padding:8px 12px;color:var(--text);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+  .swatch i{width:16px;height:16px;border-radius:50%;flex:none}
+
+  .sliderrow{display:flex;align-items:center;gap:12px}
+  .sliderrow svg{width:18px;height:18px;stroke:var(--muted);fill:none;stroke-width:2;stroke-linecap:round;flex:none}
+  input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:34px;background:transparent;margin:0;touch-action:pan-y}
+  input[type=range]::-webkit-slider-runnable-track{height:10px;border-radius:999px;background:linear-gradient(90deg,var(--surface-2),var(--accent))}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;border-radius:50%;background:#fff;margin-top:-8px;box-shadow:0 1px 5px rgba(0,0,0,.55)}
+  input[type=range]::-moz-range-track{height:10px;border-radius:999px;background:linear-gradient(90deg,var(--surface-2),var(--accent))}
+  input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;background:#fff;border:none;box-shadow:0 1px 5px rgba(0,0,0,.55)}
+  .sliderrow output{font-variant-numeric:tabular-nums;font-size:13px;color:var(--muted);width:38px;text-align:right}
+
+  .fxrow{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+  .fxrow::-webkit-scrollbar{display:none}
+  .fx{flex:none;border:1px solid var(--line);background:var(--surface);color:var(--text);
+    font:inherit;font-size:13px;font-weight:600;padding:9px 15px;border-radius:999px;cursor:pointer}
+  .fx[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+
+  .meta{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);
+    padding-top:14px;font-size:11.5px;color:var(--muted)}
+  .meta button{display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--muted);
+    font:inherit;font-size:11.5px;cursor:pointer;padding:4px}
+  .meta svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+
+  dialog{background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:20px;
+    padding:22px;width:min(92vw,360px);font-family:inherit}
+  dialog::backdrop{background:rgba(0,0,0,.6)}
+  dialog h3{margin:0 0 4px;font-size:16px}
+  dialog p{margin:0 0 14px;font-size:12.5px;color:var(--muted);line-height:1.5}
+  .field{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}
+  .field label{font-size:13.5px;font-weight:600}
+  .field input{width:82px;background:var(--surface-2);border:1px solid var(--line);color:var(--text);
+    font:inherit;font-size:14px;padding:8px 10px;border-radius:10px;text-align:right;font-variant-numeric:tabular-nums}
+  .dlg-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:8px}
+  .btn{font:inherit;font-size:14px;font-weight:650;border-radius:12px;padding:10px 16px;cursor:pointer}
+  .btn.primary{background:var(--accent);color:var(--accent-ink);border:none}
+  .btn.ghost{background:none;border:1px solid var(--line);color:var(--text)}
+
+  /* Portada de conexión */
+  #cover{
+    position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:18px;padding:32px;text-align:center;z-index:10;
+  }
+  #cover.oculto{display:none}
+  #cover h2{margin:0;font-size:26px;font-weight:800}
+  #cover p{margin:0;color:var(--muted);font-size:14px;line-height:1.6;max-width:300px}
+  #cover .grande{
+    font:inherit;font-size:17px;font-weight:700;background:var(--accent);color:var(--accent-ink);
+    border:none;border-radius:16px;padding:16px 42px;cursor:pointer;
+  }
+  #coverErr{color:var(--bad);font-size:13px;min-height:18px;max-width:320px}
+
+  #toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(8px);
+    background:var(--surface-2);border:1px solid var(--line);color:var(--text);font-size:13px;font-weight:600;
+    padding:10px 18px;border-radius:999px;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;
+    white-space:nowrap;z-index:20}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  button:focus-visible,canvas:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  @media (prefers-reduced-motion:reduce){.pill.busy .dot{animation:none}*{transition:none !important}}
+</style>
+</head>
+<body>
+
+<div id="cover">
+  <h2>Luces AC</h2>
+  <p>Enciende el Bluetooth y pulsa conectar. La primera vez, elige <b>AC-Luces</b> en la lista.</p>
+  <button class="grande" id="coverBtn">Conectar</button>
+  <div id="coverErr"></div>
+</div>
+
+<main class="app">
+  <div class="topbar">
+    <div class="brand"><h1>Luces AC</h1><span>Mando Bluetooth</span></div>
+    <div class="topbtns">
+      <button class="pill icon" id="powerBtn" aria-label="Encender o apagar">
+        <svg viewBox="0 0 24 24"><path d="M12 3v8M6.3 6.3a8 8 0 1 0 11.4 0"/></svg>
+      </button>
+      <button class="pill on" id="connPill"><span class="dot"></span><span id="connTxt">AC-Luces</span></button>
+    </div>
+  </div>
+
+  <section>
+    <div class="sec-head"><h3>Zona</h3></div>
+    <div class="zones" id="zones">
+      <button class="zone" data-z="0"><i></i>Izq</button>
+      <button class="zone" data-z="1"><i></i>Dcha</button>
+      <button class="zone" data-z="2"><i></i>Ambiente</button>
+      <button class="zone" data-z="all" aria-pressed="true"><i style="background:var(--accent)"></i>Todas</button>
+    </div>
+    <div class="syncrow">
+      <div>
+        <label for="syncSw">Sincronizar tiras</label>
+        <small>Las tres tiras copian todo lo que toques</small>
+      </div>
+      <button class="switch" id="syncSw" role="switch" aria-checked="false" aria-label="Sincronizar tiras"></button>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h3>Escenas</h3></div>
+    <div class="scenes" id="scenes"></div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h3>Color</h3></div>
+    <div class="colorbox">
+      <div class="wheelwrap">
+        <canvas id="wheel" width="344" height="344" aria-label="Rueda de color"></canvas>
+        <div class="thumb" id="thumb"></div>
+      </div>
+      <div class="swatches" id="swatches"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h3>Brillo</h3></div>
+    <div class="sliderrow">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>
+      <input type="range" id="bri" min="1" max="100" value="60" aria-label="Brillo">
+      <output id="briOut">60%</output>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h3>Efectos</h3></div>
+    <div class="fxrow" id="fxrow"></div>
+    <div class="sliderrow">
+      <svg viewBox="0 0 24 24"><path d="M13 3 5 14h5l-1 7 8-11h-5z"/></svg>
+      <input type="range" id="spd" min="1" max="100" value="50" aria-label="Velocidad del efecto">
+      <output id="spdOut">50%</output>
+    </div>
+  </section>
+
+  <div class="meta">
+    <span>3 tiras · 2 ESP32 · BLE + ESP-NOW</span>
+    <button id="cfgBtn">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      Ajustes
+    </button>
+  </div>
+</main>
+
+<dialog id="cfg">
+  <h3>Ajustes de instalación</h3>
+  <p>El número de LEDs se guarda en el propio ESP32, que se reinicia al guardar (la app se desconecta unos segundos; vuelve a conectar).</p>
+  <div class="field"><label for="n0">LEDs · Techo Izq</label><input type="number" id="n0" value="60" min="1" max="1000"></div>
+  <div class="field"><label for="n1">LEDs · Techo Dcha</label><input type="number" id="n1" value="60" min="1" max="1000"></div>
+  <div class="field"><label for="n2">LEDs · Ambiente</label><input type="number" id="n2" value="60" min="1" max="1000"></div>
+  <div class="dlg-actions">
+    <button class="btn ghost" id="cfgClose">Cerrar</button>
+    <button class="btn primary" id="cfgSave">Guardar en el ESP</button>
+  </div>
+</dialog>
+
+<div id="toast" role="status"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ═══════════ Referencias DOM (todas primero: nada de TDZ) ═══════════ */
+const $=s=>document.querySelector(s);
+const cover=$("#cover"), coverBtn=$("#coverBtn"), coverErr=$("#coverErr");
+const connPill=$("#connPill"), connTxt=$("#connTxt"), powerBtn=$("#powerBtn");
+const zonesEl=$("#zones"), syncSw=$("#syncSw"), scenesEl=$("#scenes");
+const wheel=$("#wheel"), thumb=$("#thumb"), swatchesEl=$("#swatches");
+const bri=$("#bri"), briOut=$("#briOut"), spd=$("#spd"), spdOut=$("#spdOut");
+const fxrow=$("#fxrow"), dlg=$("#cfg"), toastEl=$("#toast");
+const nInputs=[$("#n0"),$("#n1"),$("#n2")];
+
+/* ═══════════ Constantes de protocolo (== firmware) ═══════════ */
+const UUID_SVC="7e57c0de-a001-4f0e-9a2b-1c2d3e4f5a01";
+const UUID_CMD="7e57c0de-a002-4f0e-9a2b-1c2d3e4f5a01";
+const UUID_EST="7e57c0de-a003-4f0e-9a2b-1c2d3e4f5a01";
+const UUID_CFG="7e57c0de-a004-4f0e-9a2b-1c2d3e4f5a01";
+const MAGIC=0xAC1E, OP_SET=1;
+
+/* Modos WS2812FX (id real de la librería) */
+const FX=[[0,"Estático"],[2,"Respirar"],[3,"Barrido"],[11,"Arcoíris"],[12,"Arcoíris ciclo"],
+          [13,"Escáner"],[16,"Teatro"],[18,"Corriente"],[19,"Destellos"],[23,"Chispas"],
+          [43,"Larson"],[44,"Cometa"],[45,"Fuegos art."],[48,"Fuego"]];
+
+/* ═══════════ Estado de la app (espejo del firmware) ═══════════ */
+const zs=[0,1,2].map(()=>({on:true,r:255,g:170,b:80,bri:150,fx:0,speed:1000}));
+let sel="all", sync=false, activeScene=null;
+let device=null, chCmd=null, chCfg=null;
+
+const targets=()=>(sync||sel==="all")?[0,1,2]:[Number(sel)];
+const first=()=>zs[targets()[0]];
+
+/* ═══════════ Color ═══════════ */
+function hsv2rgb(h,s,v){
+  s/=100;v/=100;
+  const c=v*s,x=c*(1-Math.abs((h/60)%2-1)),m=v-c;let r,g,b;
+  if(h<60){r=c;g=x;b=0}else if(h<120){r=x;g=c;b=0}else if(h<180){r=0;g=c;b=x}
+  else if(h<240){r=0;g=x;b=c}else if(h<300){r=x;g=0;b=c}else{r=c;g=0;b=x}
+  return [Math.round((r+m)*255),Math.round((g+m)*255),Math.round((b+m)*255)];
+}
+function rgb2hs(r,g,b){
+  r/=255;g/=255;b/=255;
+  const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;
+  let h=0;
+  if(d){ if(mx===r)h=60*(((g-b)/d)%6); else if(mx===g)h=60*((b-r)/d+2); else h=60*((r-g)/d+4); }
+  if(h<0)h+=360;
+  return [h, mx?d/mx*100:0];
+}
+
+/* Velocidad: slider 1-100 → ms 5000..100 (log) */
+const spd2ms=v=>Math.round(5000*Math.pow(100/5000,(v-1)/99));
+const ms2spd=ms=>Math.round(1+99*Math.log(Math.min(Math.max(ms,100),5000)/5000)/Math.log(100/5000));
+
+/* ═══════════ BLE ═══════════ */
+function pkt(mask,z){
+  const b=new ArrayBuffer(14),d=new DataView(b);
+  d.setUint16(0,MAGIC,true); d.setUint8(2,OP_SET); d.setUint8(3,mask);
+  d.setUint8(4,z.on?1:0); d.setUint8(5,z.r); d.setUint8(6,z.g); d.setUint8(7,z.b);
+  d.setUint8(8,z.bri); d.setUint8(9,z.fx); d.setUint16(10,z.speed,true); d.setUint16(12,0,true);
+  return b;
+}
+let sending=false, cola=null;
+async function enviarRaw(buf){
+  if(!chCmd)return;
+  if(sending){cola=buf;return}
+  sending=true;
+  try{
+    if(chCmd.writeValueWithoutResponse)await chCmd.writeValueWithoutResponse(buf);
+    else await chCmd.writeValue(buf);
+  }catch(e){console.warn("BLE write",e)}
+  sending=false;
+  if(cola){const c=cola;cola=null;enviarRaw(c)}
+}
+/* Envía el estado actual de las zonas objetivo (1 paquete por zona, valores propios) */
+function enviarTargets(){ targets().forEach(i=>enviarRaw(pkt(1<<i,zs[i]))) }
+/* Envía los mismos valores a todas las zonas objetivo (escenas, color…) en 1 paquete */
+function enviarComun(vals){
+  const mask=targets().reduce((m,i)=>m|(1<<i),0);
+  targets().forEach(i=>Object.assign(zs[i],vals));
+  enviarRaw(pkt(mask,first()));
+  refreshDots();
+}
+
+function estadoDesde(dv){
+  if(dv.byteLength<25)return;
+  for(let i=0;i<3;i++){
+    const o=1+i*8;
+    zs[i].on=!!dv.getUint8(o); zs[i].r=dv.getUint8(o+1); zs[i].g=dv.getUint8(o+2); zs[i].b=dv.getUint8(o+3);
+    zs[i].bri=dv.getUint8(o+4); zs[i].fx=dv.getUint8(o+5); zs[i].speed=dv.getUint8(o+6)|(dv.getUint8(o+7)<<8);
+  }
+  syncUI();
+}
+
+async function conectar(){
+  coverErr.textContent="";
+  if(!navigator.bluetooth){
+    coverErr.textContent="Este navegador no tiene Web Bluetooth. En iPhone abre esta página con la app Bluefy.";
+    return;
+  }
+  try{
+    coverBtn.textContent="Buscando…";
+    device=await navigator.bluetooth.requestDevice({filters:[{namePrefix:"AC-Luces"}],optionalServices:[UUID_SVC]});
+    device.addEventListener("gattserverdisconnected",desconectado);
+    const gatt=await device.gatt.connect();
+    const svc=await gatt.getPrimaryService(UUID_SVC);
+    chCmd=await svc.getCharacteristic(UUID_CMD);
+    chCfg=await svc.getCharacteristic(UUID_CFG);
+    const chEst=await svc.getCharacteristic(UUID_EST);
+    estadoDesde(await chEst.readValue());
+    try{
+      await chEst.startNotifications();
+      chEst.addEventListener("characteristicvaluechanged",e=>estadoDesde(e.target.value));
+    }catch(e){ /* sin notificaciones: no es crítico */ }
+    try{
+      const cfg=await chCfg.readValue();
+      for(let i=0;i<3;i++)nInputs[i].value=cfg.getUint16(i*2,true);
+    }catch(e){}
+    cover.classList.add("oculto");
+    connPill.classList.add("on");
+    connTxt.textContent=device.name||"AC-Luces";
+    toast("Conectado");
+  }catch(e){
+    coverBtn.textContent="Conectar";
+    if(e.name!=="NotFoundError")coverErr.textContent="No se pudo conectar: "+e.message;
+  }
+}
+function desconectado(){
+  chCmd=null;chCfg=null;
+  connPill.classList.remove("on");
+  cover.classList.remove("oculto");
+  coverBtn.textContent="Reconectar";
+}
+coverBtn.addEventListener("click",conectar);
+connPill.addEventListener("click",()=>{ if(!chCmd)conectar() });
+
+/* ═══════════ UI: zonas y sync ═══════════ */
+function refreshDots(){
+  zonesEl.querySelectorAll(".zone").forEach(b=>{
+    if(b.dataset.z==="all")return;
+    const z=zs[Number(b.dataset.z)];
+    b.querySelector("i").style.background=z.on?`rgb(${z.r},${z.g},${z.b})`:"#555";
+  });
+}
+function selectZone(v){
+  sel=v;
+  zonesEl.querySelectorAll(".zone").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.z===v)));
+  syncUI();
+}
+zonesEl.querySelectorAll(".zone").forEach(b=>b.addEventListener("click",()=>selectZone(b.dataset.z)));
+
+syncSw.addEventListener("click",()=>{
+  sync=!sync;
+  syncSw.setAttribute("aria-checked",String(sync));
+  zonesEl.querySelectorAll(".zone").forEach(b=>{if(b.dataset.z!=="all")b.disabled=sync});
+  if(sync){selectZone("all");enviarComun({...first()})}
+  toast(sync?"Tiras sincronizadas":"Control independiente");
+});
+
+/* ═══════════ Encendido/apagado (zonas seleccionadas) ═══════════ */
+powerBtn.addEventListener("click",()=>{
+  const encender=!targets().some(i=>zs[i].on);
+  targets().forEach(i=>zs[i].on=encender);
+  enviarTargets(); refreshDots();
+  toast(encender?"Encendido":"Apagado");
+});
+
+/* ═══════════ Escenas ═══════════ */
+const IC={
+  sol:'<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/>',
+  libro:'<path d="M4 19V5a2 2 0 0 1 2-2h13v16H6.5A2.5 2.5 0 0 0 4 21.5V19"/><path d="M4 19a2.5 2.5 0 0 1 2.5-2.5H19"/>',
+  cine:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18M7 5l2 4M12 5l2 4M17 5l2 4"/>',
+  luna:'<path d="M20 13A8 8 0 1 1 11 4a6.5 6.5 0 0 0 9 9z"/>',
+  fiesta:'<path d="M5 21 8 8l8 8zM12 4l.5 2M18 5l-1.5 1.5M20 11h-2"/>',
+  ola:'<path d="M3 12c2-3 4-3 6 0s4 3 6 0 4-3 6 0M3 18c2-3 4-3 6 0s4 3 6 0 4-3 6 0"/>'
+};
+/* hsv de referencia → rgb fijo; bri 0-255; speed en ms */
+const SCENES=[
+  {n:"Luz cálida",i:"sol",   v:{...rgbv(35,55),  bri:217,fx:0, speed:1000,on:true}},
+  {n:"Lectura",  i:"libro",  v:{...rgbv(45,12),  bri:255,fx:0, speed:1000,on:true}},
+  {n:"Cine",     i:"cine",   v:{...rgbv(28,75),  bri:56, fx:0, speed:1000,on:true}},
+  {n:"Noche",    i:"luna",   v:{...rgbv(12,90),  bri:18, fx:0, speed:1000,on:true}},
+  {n:"Fiesta",   i:"fiesta", v:{...rgbv(0,90),   bri:230,fx:12,speed:300, on:true}},
+  {n:"Calma",    i:"ola",    v:{...rgbv(195,65), bri:115,fx:2, speed:4000,on:true}},
+];
+function rgbv(h,s){const[r,g,b]=hsv2rgb(h,s,100);return{r,g,b}}
+SCENES.forEach((s,idx)=>{
+  const b=document.createElement("button");
+  b.className="scene";
+  b.innerHTML=`<svg viewBox="0 0 24 24">${IC[s.i]}</svg><b>${s.n}</b>`;
+  b.addEventListener("click",()=>{
+    enviarComun({...s.v});
+    activeScene=idx; refreshScenes(); syncUI();
+    toast(`Escena «${s.n}»`);
+  });
+  scenesEl.appendChild(b);
+});
+function refreshScenes(){
+  scenesEl.querySelectorAll(".scene").forEach((b,i)=>b.classList.toggle("active",i===activeScene));
+}
+
+/* ═══════════ Rueda de color ═══════════ */
+const W=wheel.width,R=W/2,wctx=wheel.getContext("2d");
+(function paintWheel(){
+  const img=wctx.createImageData(W,W);
+  for(let y=0;y<W;y++)for(let x=0;x<W;x++){
+    const dx=x-R,dy=y-R,d=Math.hypot(dx,dy);
+    if(d>R)continue;
+    const h=(Math.atan2(dy,dx)*180/Math.PI+360)%360,s=d/R*100;
+    const[r,g,b]=hsv2rgb(h,s,100),o=(y*W+x)*4;
+    img.data[o]=r;img.data[o+1]=g;img.data[o+2]=b;
+    img.data[o+3]=d>R-2?Math.max(0,255*(R-d)/2):255;
+  }
+  wctx.putImageData(img,0,0);
+})();
+function setThumb(){
+  const z=first(),[h,s]=rgb2hs(z.r,z.g,z.b),a=h*Math.PI/180,d=s/100*86;
+  thumb.style.left=(86+Math.cos(a)*d)+"px";
+  thumb.style.top=(86+Math.sin(a)*d)+"px";
+  thumb.style.background=`rgb(${z.r},${z.g},${z.b})`;
+}
+let lastWheel=0;
+function pickColor(e,forzar){
+  const rect=wheel.getBoundingClientRect();
+  const x=(e.clientX-rect.left)*(W/rect.width)-R,y=(e.clientY-rect.top)*(W/rect.height)-R;
+  const d=Math.min(Math.hypot(x,y),R);
+  const h=(Math.atan2(y,x)*180/Math.PI+360)%360,s=d/R*100;
+  const[r,g,b]=hsv2rgb(h,s,100);
+  const now=performance.now();
+  targets().forEach(i=>{Object.assign(zs[i],{r,g,b,on:true})});
+  setThumb(); refreshDots();
+  activeScene=null; refreshScenes();
+  if(forzar||now-lastWheel>90){lastWheel=now;enviarComun({r,g,b,on:true})}
+}
+let dragging=false;
+wheel.addEventListener("pointerdown",e=>{dragging=true;wheel.setPointerCapture(e.pointerId);pickColor(e,false)});
+wheel.addEventListener("pointermove",e=>{if(dragging)pickColor(e,false)});
+wheel.addEventListener("pointerup",e=>{dragging=false;pickColor(e,true)});
+
+/* ═══════════ Blancos rápidos ═══════════ */
+[["Cálido 2700K",33,45],["Neutro 4000K",40,18],["Frío 6000K",210,8]].forEach(([n,h,s])=>{
+  const[r,g,b]=hsv2rgb(h,s,100);
+  const btn=document.createElement("button");
+  btn.className="swatch";
+  btn.innerHTML=`<i style="background:rgb(${r},${g},${b})"></i>${n}`;
+  btn.addEventListener("click",()=>{
+    enviarComun({r,g,b,fx:0,on:true});
+    activeScene=null;refreshScenes();setThumb();syncFx();
+  });
+  swatchesEl.appendChild(btn);
+});
+
+/* ═══════════ Sliders ═══════════ */
+let lastBri=0;
+bri.addEventListener("input",()=>{
+  briOut.textContent=bri.value+"%";
+  const v=Math.round(Number(bri.value)*2.55),now=performance.now();
+  targets().forEach(i=>{zs[i].bri=v;zs[i].on=true});
+  if(now-lastBri>90){lastBri=now;enviarComun({bri:v,on:true})}
+});
+bri.addEventListener("change",()=>enviarComun({bri:Math.round(Number(bri.value)*2.55),on:true}));
+
+let lastSpd=0;
+spd.addEventListener("input",()=>{
+  spdOut.textContent=spd.value+"%";
+  const ms=spd2ms(Number(spd.value)),now=performance.now();
+  targets().forEach(i=>zs[i].speed=ms);
+  if(now-lastSpd>150){lastSpd=now;enviarComun({speed:ms})}
+});
+spd.addEventListener("change",()=>enviarComun({speed:spd2ms(Number(spd.value))}));
+
+/* ═══════════ Efectos ═══════════ */
+FX.forEach(([id,label])=>{
+  const b=document.createElement("button");
+  b.className="fx";b.textContent=label;b.dataset.fx=id;
+  b.addEventListener("click",()=>{
+    enviarComun({fx:id,on:true});
+    activeScene=null;refreshScenes();syncFx();
+    toast(`Efecto «${label}»`);
+  });
+  fxrow.appendChild(b);
+});
+function syncFx(){
+  const z=first();
+  fxrow.querySelectorAll(".fx").forEach(b=>b.setAttribute("aria-pressed",String(Number(b.dataset.fx)===z.fx)));
+}
+
+/* Refleja el estado de la zona activa en los controles */
+function syncUI(){
+  const z=first();
+  bri.value=Math.max(1,Math.round(z.bri/2.55));briOut.textContent=bri.value+"%";
+  spd.value=ms2spd(z.speed);spdOut.textContent=spd.value+"%";
+  setThumb();syncFx();refreshDots();
+}
+
+/* ═══════════ Ajustes ═══════════ */
+$("#cfgBtn").addEventListener("click",()=>dlg.showModal());
+$("#cfgClose").addEventListener("click",()=>dlg.close());
+$("#cfgSave").addEventListener("click",async()=>{
+  if(!chCfg){toast("Sin conexión");return}
+  const buf=new ArrayBuffer(6),d=new DataView(buf);
+  for(let i=0;i<3;i++)d.setUint16(i*2,Math.min(1000,Math.max(1,Number(nInputs[i].value)||60)),true);
+  try{
+    await chCfg.writeValue(buf);
+  }catch(e){ /* el ESP se reinicia y corta antes de confirmar: es normal */ }
+  dlg.close();
+  toast("Guardado — el ESP se reinicia…");
+});
+
+/* ═══════════ Toast ═══════════ */
+let toastTimer;
+function toast(msg){
+  toastEl.textContent=msg;toastEl.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>toastEl.classList.remove("show"),1900);
+}
+
+/* Estado inicial de la UI */
+selectZone("all");
+syncUI();
+})();
+</script>
+</body>
+</html>
