@@ -38,6 +38,7 @@ static const char* UUID_CFG = "7e57c0de-a004-4f0e-9a2b-1c2d3e4f5a01";
 #define MAGIC 0xAC1E
 #define OP_SET    1
 #define OP_CONFIG 2
+#define OP_POWER  3
 
 struct __attribute__((packed)) Pkt {
   uint16_t magic;
@@ -102,6 +103,23 @@ void procesarSet(const Pkt& p) {
   notificarEstado();
 }
 
+// ── Encender/apagar sin tocar color ni efecto (1 solo paquete) ──
+void procesarPower(const Pkt& p) {
+  for (int i = 0; i < 3; i++) {
+    if (!(p.mask & (1 << i))) continue;
+    zonas[i].on = p.on;
+    if (i < 2) aplicarLocal(i);
+  }
+  if (p.mask & 0b100) {
+    // Al secundario le mandamos su estado completo (él no distingue ops de set)
+    Pkt q = {}; q.magic = MAGIC; q.op = OP_SET; q.mask = 0b100;
+    q.on = zonas[2].on; q.r = zonas[2].r; q.g = zonas[2].g; q.b = zonas[2].b;
+    q.bri = zonas[2].bri; q.fx = zonas[2].fx; q.speed = zonas[2].speed;
+    enviarEspNow(q);
+  }
+  notificarEstado();
+}
+
 // ── Callbacks BLE ───────────────────────────────────────────
 class CmdCB : public NimBLECharacteristicCallbacks {
   void onWrite(NimBLECharacteristic* c, NimBLEConnInfo&) override {
@@ -110,6 +128,7 @@ class CmdCB : public NimBLECharacteristicCallbacks {
     Pkt p; memcpy(&p, v.data(), sizeof(Pkt));
     if (p.magic != MAGIC) return;
     if (p.op == OP_SET) procesarSet(p);
+    else if (p.op == OP_POWER) procesarPower(p);
   }
 };
 

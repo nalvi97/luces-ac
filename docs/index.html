@@ -246,7 +246,7 @@ const UUID_SVC="7e57c0de-a001-4f0e-9a2b-1c2d3e4f5a01";
 const UUID_CMD="7e57c0de-a002-4f0e-9a2b-1c2d3e4f5a01";
 const UUID_EST="7e57c0de-a003-4f0e-9a2b-1c2d3e4f5a01";
 const UUID_CFG="7e57c0de-a004-4f0e-9a2b-1c2d3e4f5a01";
-const MAGIC=0xAC1E, OP_SET=1;
+const MAGIC=0xAC1E, OP_SET=1, OP_POWER=3;
 
 /* Modos WS2812FX (id real de la librería) */
 const FX=[[0,"Estático"],[2,"Respirar"],[3,"Barrido"],[11,"Arcoíris"],[12,"Arcoíris ciclo"],
@@ -290,20 +290,23 @@ function pkt(mask,z){
   d.setUint8(8,z.bri); d.setUint8(9,z.fx); d.setUint16(10,z.speed,true); d.setUint16(12,0,true);
   return b;
 }
-let sending=false, cola=null;
+let sending=false, notifPend=null;
+const cola=[];
 async function enviarRaw(buf){
   if(!chCmd)return;
-  if(sending){cola=buf;return}
+  cola.push(buf);
+  if(sending)return;
   sending=true;
-  try{
-    if(chCmd.writeValueWithoutResponse)await chCmd.writeValueWithoutResponse(buf);
-    else await chCmd.writeValue(buf);
-  }catch(e){console.warn("BLE write",e)}
+  while(cola.length){
+    const b=cola.shift();
+    try{
+      if(chCmd.writeValueWithoutResponse)await chCmd.writeValueWithoutResponse(b);
+      else await chCmd.writeValue(b);
+    }catch(e){console.warn("BLE write",e)}
+  }
   sending=false;
-  if(cola){const c=cola;cola=null;enviarRaw(c)}
+  if(notifPend){const d=notifPend;notifPend=null;estadoDesde(d)}
 }
-/* Envía el estado actual de las zonas objetivo (1 paquete por zona, valores propios) */
-function enviarTargets(){ targets().forEach(i=>enviarRaw(pkt(1<<i,zs[i]))) }
 /* Envía los mismos valores a todas las zonas objetivo (escenas, color…) en 1 paquete */
 function enviarComun(vals){
   const mask=targets().reduce((m,i)=>m|(1<<i),0);
@@ -314,6 +317,11 @@ function enviarComun(vals){
 
 function estadoDesde(dv){
   if(dv.byteLength<25)return;
+  /* Con envíos en vuelo, el "eco" del ESP va retrasado: se aplica al vaciar la cola */
+  if(sending||cola.length){
+    notifPend=new DataView(dv.buffer.slice(dv.byteOffset,dv.byteOffset+dv.byteLength));
+    return;
+  }
   for(let i=0;i<3;i++){
     const o=1+i*8;
     zs[i].on=!!dv.getUint8(o); zs[i].r=dv.getUint8(o+1); zs[i].g=dv.getUint8(o+2); zs[i].b=dv.getUint8(o+3);
@@ -392,7 +400,11 @@ syncSw.addEventListener("click",()=>{
 powerBtn.addEventListener("click",()=>{
   const encender=!targets().some(i=>zs[i].on);
   targets().forEach(i=>zs[i].on=encender);
-  enviarTargets(); refreshDots();
+  const mask=targets().reduce((m,i)=>m|(1<<i),0);
+  const b=new ArrayBuffer(14),d=new DataView(b);
+  d.setUint16(0,MAGIC,true);d.setUint8(2,OP_POWER);d.setUint8(3,mask);d.setUint8(4,encender?1:0);
+  enviarRaw(b);
+  refreshDots();
   toast(encender?"Encendido":"Apagado");
 });
 
