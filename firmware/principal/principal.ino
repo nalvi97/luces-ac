@@ -39,6 +39,7 @@ static const char* UUID_CFG = "7e57c0de-a004-4f0e-9a2b-1c2d3e4f5a01";
 #define OP_SET    1
 #define OP_CONFIG 2
 #define OP_POWER  3
+#define FW_VER    3   // se publica en el primer byte del estado BLE
 
 struct __attribute__((packed)) Pkt {
   uint16_t magic;
@@ -50,6 +51,7 @@ struct __attribute__((packed)) Pkt {
   uint8_t  fx;      // modo WS2812FX
   uint16_t speed;   // ms por ciclo WS2812FX (mayor = más lento)
   uint16_t count;   // OP_CONFIG: nº de LEDs
+  uint8_t  orden;   // OP_CONFIG: orden de color (0=GRB 1=RGB 2=BGR 3=BRG 4=GBR 5=RBG)
 };
 
 struct Zona { bool on; uint8_t r, g, b, bri, fx; uint16_t speed; };
@@ -57,6 +59,18 @@ Zona zonas[3];      // A, B, C — C es solo "espejo" de lo enviado al secundari
 
 Preferences prefs;
 uint16_t numLeds[3] = {LEDS_DEF, LEDS_DEF, LEDS_DEF};
+uint8_t  ordenes[3] = {0, 0, 0};   // orden de color por tira, configurable desde la app
+
+neoPixelType ordenTipo(uint8_t o) {
+  switch (o) {
+    case 1:  return NEO_RGB + NEO_KHZ800;
+    case 2:  return NEO_BGR + NEO_KHZ800;
+    case 3:  return NEO_BRG + NEO_KHZ800;
+    case 4:  return NEO_GBR + NEO_KHZ800;
+    case 5:  return NEO_RBG + NEO_KHZ800;
+    default: return NEO_GRB + NEO_KHZ800;
+  }
+}
 
 WS2812FX* tiraA;
 WS2812FX* tiraB;
@@ -67,7 +81,7 @@ uint8_t bcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 // ── Estado → BLE (25 bytes: versión + 3 zonas × 8) ──────────
 void notificarEstado() {
   uint8_t buf[25];
-  buf[0] = 1;
+  buf[0] = FW_VER;
   for (int i = 0; i < 3; i++) {
     uint8_t* p = buf + 1 + i * 8;
     p[0] = zonas[i].on; p[1] = zonas[i].r; p[2] = zonas[i].g; p[3] = zonas[i].b;
@@ -135,16 +149,20 @@ class CmdCB : public NimBLECharacteristicCallbacks {
 class CfgCB : public NimBLECharacteristicCallbacks {
   void onWrite(NimBLECharacteristic* c, NimBLEConnInfo&) override {
     NimBLEAttValue v = c->getValue();
-    if (v.size() < 6) return;                       // 3 × uint16 LE
+    if (v.size() < 9) return;                       // 3×uint16 LE (LEDs) + 3×uint8 (orden color)
     const uint8_t* d = v.data();
     uint16_t n0 = d[0] | (d[1] << 8), n1 = d[2] | (d[3] << 8), n2 = d[4] | (d[5] << 8);
     prefs.putUShort("n0", n0);
     prefs.putUShort("n1", n1);
     prefs.putUShort("n2", n2);
-    Pkt p = {}; p.magic = MAGIC; p.op = OP_CONFIG; p.mask = 0b100; p.count = n2;
+    prefs.putUChar("o0", d[6]);
+    prefs.putUChar("o1", d[7]);
+    prefs.putUChar("o2", d[8]);
+    Pkt p = {}; p.magic = MAGIC; p.op = OP_CONFIG; p.mask = 0b100;
+    p.count = n2; p.orden = d[8];
     enviarEspNow(p);                                // el secundario guarda y se reinicia
     delay(150);
-    ESP.restart();                                  // reinicio limpio con la nueva longitud
+    ESP.restart();                                  // reinicio limpio con la nueva configuración
   }
 };
 
@@ -176,12 +194,15 @@ void setup() {
   numLeds[0] = prefs.getUShort("n0", LEDS_DEF);
   numLeds[1] = prefs.getUShort("n1", LEDS_DEF);
   numLeds[2] = prefs.getUShort("n2", LEDS_DEF);
+  ordenes[0] = prefs.getUChar("o0", 0);
+  ordenes[1] = prefs.getUChar("o1", 0);
+  ordenes[2] = prefs.getUChar("o2", 0);
 
   // Estado inicial: blanco cálido suave (los interruptores mandan)
   for (int i = 0; i < 3; i++) zonas[i] = {true, 255, 170, 80, 150, 0, 1000};
 
-  tiraA = new WS2812FX(numLeds[0], PIN_TIRA_A, NEO_GRB + NEO_KHZ800);
-  tiraB = new WS2812FX(numLeds[1], PIN_TIRA_B, NEO_GRB + NEO_KHZ800);
+  tiraA = new WS2812FX(numLeds[0], PIN_TIRA_A, ordenTipo(ordenes[0]));
+  tiraB = new WS2812FX(numLeds[1], PIN_TIRA_B, ordenTipo(ordenes[1]));
   for (WS2812FX* t : {tiraA, tiraB}) { t->init(); t->start(); }
   aplicarLocal(0); aplicarLocal(1);
 
@@ -218,10 +239,11 @@ void setup() {
   NimBLECharacteristic* chCfg = svc->createCharacteristic(
       UUID_CFG, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE);
   chCfg->setCallbacks(new CfgCB());
-  uint8_t cfg[6] = {(uint8_t)(numLeds[0] & 0xFF), (uint8_t)(numLeds[0] >> 8),
+  uint8_t cfg[9] = {(uint8_t)(numLeds[0] & 0xFF), (uint8_t)(numLeds[0] >> 8),
                     (uint8_t)(numLeds[1] & 0xFF), (uint8_t)(numLeds[1] >> 8),
-                    (uint8_t)(numLeds[2] & 0xFF), (uint8_t)(numLeds[2] >> 8)};
-  chCfg->setValue(cfg, 6);
+                    (uint8_t)(numLeds[2] & 0xFF), (uint8_t)(numLeds[2] >> 8),
+                    ordenes[0], ordenes[1], ordenes[2]};
+  chCfg->setValue(cfg, 9);
 
   svc->start();
   NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();

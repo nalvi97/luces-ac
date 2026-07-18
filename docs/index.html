@@ -103,6 +103,8 @@
   .field label{font-size:13.5px;font-weight:600}
   .field input{width:82px;background:var(--surface-2);border:1px solid var(--line);color:var(--text);
     font:inherit;font-size:14px;padding:8px 10px;border-radius:10px;text-align:right;font-variant-numeric:tabular-nums}
+  .field select{width:110px;background:var(--surface-2);border:1px solid var(--line);color:var(--text);
+    font:inherit;font-size:14px;padding:8px 10px;border-radius:10px}
   .dlg-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:8px}
   .btn{font:inherit;font-size:14px;font-weight:650;border-radius:12px;padding:10px 16px;cursor:pointer}
   .btn.primary{background:var(--accent);color:var(--accent-ink);border:none}
@@ -205,7 +207,7 @@
   </section>
 
   <div class="meta">
-    <span><b>v1.2</b> · 3 tiras · BLE + ESP-NOW</span>
+    <span id="metaInfo"><b>app v1.3</b> · firmware —</span>
     <button id="cfgBtn">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
       Ajustes
@@ -219,6 +221,10 @@
   <div class="field"><label for="n0">LEDs · Techo Izq</label><input type="number" id="n0" value="60" min="1" max="1000"></div>
   <div class="field"><label for="n1">LEDs · Techo Dcha</label><input type="number" id="n1" value="60" min="1" max="1000"></div>
   <div class="field"><label for="n2">LEDs · Ambiente</label><input type="number" id="n2" value="60" min="1" max="1000"></div>
+  <p style="margin:14px 0 10px">Si una tira muestra los colores cambiados (p. ej. el rojo sale verde), prueba otro orden hasta que el rojo sea rojo:</p>
+  <div class="field"><label for="o0">Orden color · Izq</label><select id="o0"></select></div>
+  <div class="field"><label for="o1">Orden color · Dcha</label><select id="o1"></select></div>
+  <div class="field"><label for="o2">Orden color · Ambiente</label><select id="o2"></select></div>
   <div class="dlg-actions">
     <button class="btn ghost" id="cfgClose">Cerrar</button>
     <button class="btn primary" id="cfgSave">Guardar en el ESP</button>
@@ -240,6 +246,13 @@ const wheel=$("#wheel"), thumb=$("#thumb"), swatchesEl=$("#swatches");
 const bri=$("#bri"), briOut=$("#briOut"), spd=$("#spd"), spdOut=$("#spdOut");
 const fxrow=$("#fxrow"), dlg=$("#cfg"), toastEl=$("#toast");
 const nInputs=[$("#n0"),$("#n1"),$("#n2")];
+const oInputs=[$("#o0"),$("#o1"),$("#o2")];
+const metaInfo=$("#metaInfo");
+const ORDENES=["GRB (normal)","RGB","BGR","BRG","GBR","RBG"];
+oInputs.forEach(sel=>{
+  ORDENES.forEach((n,v)=>{const o=document.createElement("option");o.value=v;o.textContent=n;sel.appendChild(o)});
+});
+const FW_ESPERADO=3;
 
 /* ═══════════ Constantes de protocolo (== firmware) ═══════════ */
 const UUID_SVC="7e57c0de-a001-4f0e-9a2b-1c2d3e4f5a01";
@@ -284,10 +297,11 @@ const ms2spd=ms=>Math.round(1+99*Math.log(Math.min(Math.max(ms,100),5000)/5000)/
 
 /* ═══════════ BLE ═══════════ */
 function pkt(mask,z){
-  const b=new ArrayBuffer(14),d=new DataView(b);
+  const b=new ArrayBuffer(15),d=new DataView(b);
   d.setUint16(0,MAGIC,true); d.setUint8(2,OP_SET); d.setUint8(3,mask);
   d.setUint8(4,z.on?1:0); d.setUint8(5,z.r); d.setUint8(6,z.g); d.setUint8(7,z.b);
   d.setUint8(8,z.bri); d.setUint8(9,z.fx); d.setUint16(10,z.speed,true); d.setUint16(12,0,true);
+  d.setUint8(14,0);
   return b;
 }
 let sending=false, notifPend=null;
@@ -327,6 +341,10 @@ function estadoDesde(dv){
     zs[i].on=!!dv.getUint8(o); zs[i].r=dv.getUint8(o+1); zs[i].g=dv.getUint8(o+2); zs[i].b=dv.getUint8(o+3);
     zs[i].bri=dv.getUint8(o+4); zs[i].fx=dv.getUint8(o+5); zs[i].speed=dv.getUint8(o+6)|(dv.getUint8(o+7)<<8);
   }
+  const fw=dv.getUint8(0);
+  metaInfo.innerHTML=(fw<FW_ESPERADO)
+    ? `<b>app v1.3</b> · <span style="color:var(--bad)">firmware v${fw} antiguo — reflashea principal-esp32.bin</span>`
+    : `<b>app v1.3</b> · firmware v${fw}`;
   syncUI();
 }
 
@@ -354,6 +372,7 @@ async function conectar(){
     try{
       const cfg=await chCfg.readValue();
       for(let i=0;i<3;i++)nInputs[i].value=cfg.getUint16(i*2,true);
+      if(cfg.byteLength>=9)for(let i=0;i<3;i++)oInputs[i].value=cfg.getUint8(6+i);
     }catch(e){}
     cover.classList.add("oculto");
     connPill.classList.add("on");
@@ -401,7 +420,7 @@ powerBtn.addEventListener("click",()=>{
   const encender=!targets().some(i=>zs[i].on);
   targets().forEach(i=>zs[i].on=encender);
   const mask=targets().reduce((m,i)=>m|(1<<i),0);
-  const b=new ArrayBuffer(14),d=new DataView(b);
+  const b=new ArrayBuffer(15),d=new DataView(b);
   d.setUint16(0,MAGIC,true);d.setUint8(2,OP_POWER);d.setUint8(3,mask);d.setUint8(4,encender?1:0);
   enviarRaw(b);
   refreshDots();
@@ -541,8 +560,9 @@ $("#cfgBtn").addEventListener("click",()=>dlg.showModal());
 $("#cfgClose").addEventListener("click",()=>dlg.close());
 $("#cfgSave").addEventListener("click",async()=>{
   if(!chCfg){toast("Sin conexión");return}
-  const buf=new ArrayBuffer(6),d=new DataView(buf);
+  const buf=new ArrayBuffer(9),d=new DataView(buf);
   for(let i=0;i<3;i++)d.setUint16(i*2,Math.min(1000,Math.max(1,Number(nInputs[i].value)||60)),true);
+  for(let i=0;i<3;i++)d.setUint8(6+i,Number(oInputs[i].value)||0);
   try{
     await chCfg.writeValue(buf);
   }catch(e){ /* el ESP se reinicia y corta antes de confirmar: es normal */ }

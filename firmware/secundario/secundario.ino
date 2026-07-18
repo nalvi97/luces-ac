@@ -34,7 +34,19 @@ struct __attribute__((packed)) Pkt {
   uint8_t  fx;
   uint16_t speed;
   uint16_t count;
+  uint8_t  orden;   // 0=GRB 1=RGB 2=BGR 3=BRG 4=GBR 5=RBG
 };
+
+neoPixelType ordenTipo(uint8_t o) {
+  switch (o) {
+    case 1:  return NEO_RGB + NEO_KHZ800;
+    case 2:  return NEO_BGR + NEO_KHZ800;
+    case 3:  return NEO_BRG + NEO_KHZ800;
+    case 4:  return NEO_GBR + NEO_KHZ800;
+    case 5:  return NEO_RBG + NEO_KHZ800;
+    default: return NEO_GRB + NEO_KHZ800;
+  }
+}
 
 Preferences prefs;
 WS2812FX* tira;
@@ -54,6 +66,7 @@ void alRecibir(const esp_now_recv_info_t* info, const uint8_t* data, int len) {
 void aplicar(const Pkt& p) {
   if (p.op == OP_CONFIG) {
     prefs.putUShort("n2", p.count);
+    prefs.putUChar("o2", p.orden);
     delay(100);
     ESP.restart();
     return;
@@ -70,8 +83,9 @@ void setup() {
 
   prefs.begin("lucesac");
   uint16_t n = prefs.getUShort("n2", LEDS_DEF);
+  uint8_t  o = prefs.getUChar("o2", 0);
 
-  tira = new WS2812FX(n, PIN_TIRA, NEO_GRB + NEO_KHZ800);
+  tira = new WS2812FX(n, PIN_TIRA, ordenTipo(o));
   tira->init();
   tira->start();
   // Arranque: blanco cálido suave hasta que llegue una orden
