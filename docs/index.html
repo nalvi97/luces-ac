@@ -11,6 +11,7 @@
     --ok:#8fd49b; --bad:#e08484; color-scheme:dark;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  [hidden]{display:none !important}
   html,body{margin:0;padding:0}
   body{
     background:var(--bg);color:var(--text);
@@ -68,22 +69,30 @@
   #flujo .nfill{fill:var(--surface-2);stroke:var(--line)}
   #flujo .nico{stroke:var(--muted);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
   #flujo text{fill:var(--muted);font-size:9.5px;font-family:inherit;text-anchor:middle;letter-spacing:.5px}
-  #flujo .fpath{stroke:var(--line);stroke-width:2.5;fill:none;stroke-dasharray:2 7;stroke-linecap:round}
-  #flujo .fpath.on{stroke:var(--accent);animation:flujo .9s linear infinite}
-  @keyframes flujo{to{stroke-dashoffset:-9}}
   #flujo .sol{fill:var(--accent)}
   #flujo .srayo{stroke:var(--accent);stroke-width:2;stroke-linecap:round;fill:none}
   #gSol{transition:opacity .5s}
-  #gSol.apagado{opacity:.9}
   #gSol.apagado .sol{fill:var(--surface-2);stroke:var(--line)}
   #gSol.apagado .srayo{stroke:var(--line)}
-  #flujo .cuerpo{fill:var(--surface-2);stroke:var(--line);stroke-width:1.5}
+  #flujo .cuerpo{fill:color-mix(in srgb,var(--surface-2) 72%,transparent);stroke:var(--line);stroke-width:1.6}
   #flujo .suelo{stroke:var(--line);stroke-width:1.5;stroke-linecap:round}
-  #flujo .placa{fill:color-mix(in srgb,var(--info) 28%,var(--surface-2));stroke:var(--line)}
+  #flujo .placa{fill:color-mix(in srgb,var(--info) 30%,var(--surface-2));stroke:var(--line)}
   #flujo .placagrid{stroke:var(--line);stroke-width:1}
   #flujo .pata{stroke:var(--line);stroke-width:2}
-  #flujo .vidrio{fill:color-mix(in srgb,var(--info) 15%,var(--surface));stroke:var(--line)}
+  #flujo .vidrio{fill:color-mix(in srgb,var(--info) 16%,var(--surface));stroke:var(--line)}
   #flujo .rueda circle{fill:var(--bg);stroke:var(--line);stroke-width:1.5}
+  #flujo .dato{fill:var(--text);font-size:10.5px;font-family:inherit;text-anchor:middle;font-variant-numeric:tabular-nums;font-weight:600}
+  /* Flujos de energía: guía punteada + puntos con halo recorriéndola */
+  .flow .guia{stroke:var(--line);stroke-width:2;fill:none;stroke-dasharray:1.5 5;stroke-linecap:round;opacity:.7}
+  .flow.on .guia{stroke:color-mix(in srgb,var(--accent) 55%,var(--line));opacity:1}
+  .flow .edot{display:none}
+  .flow.on .edot{display:inline}
+  .edot .halo{fill:var(--accent);opacity:.22}
+  .edot .nucleo{fill:var(--accent)}
+  @media (prefers-reduced-motion:reduce){
+    .flow.on .edot{display:none}
+    .flow.on .guia{stroke:var(--accent);stroke-dasharray:none}
+  }
   .meter{position:relative;height:10px;border-radius:999px;overflow:hidden;display:flex;margin-top:10px}
   .meter i{height:100%}
   .meter .z1{flex:12;background:color-mix(in srgb,var(--bad) 30%,var(--surface-2))}
@@ -93,12 +102,13 @@
   .mdot{position:absolute;top:50%;width:16px;height:16px;border-radius:50%;background:#fff;
     box-shadow:0 1px 5px rgba(0,0,0,.6);transform:translate(-50%,-50%);transition:left .6s}
   .mwrap{position:relative;padding:3px 0}
-  .mticks{display:flex;justify-content:space-between;color:var(--muted);font-size:10px;
-    font-variant-numeric:tabular-nums;margin-top:6px}
+  .mticks{position:relative;height:14px;margin-top:6px;color:var(--muted);font-size:10px;
+    font-variant-numeric:tabular-nums}
+  .mticks span{position:absolute;transform:translateX(-50%)}
   #vSpark{width:100%;height:64px;display:block;margin-top:10px;touch-action:none}
   .live{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ok);
     box-shadow:0 0 6px var(--ok);animation:pulse 2s infinite;vertical-align:1px;margin-right:6px}
-  @media (prefers-reduced-motion:reduce){#flujo .fpath.on{animation:none}.live{animation:none}}
+  @media (prefers-reduced-motion:reduce){.live{animation:none}}
 
   section{display:flex;flex-direction:column;gap:10px}
   .sec-head h3{margin:0;font-size:11px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted)}
@@ -304,39 +314,66 @@
             </div>
             <div class="chip c-muted" id="vChip"><svg viewBox="0 0 24 24" id="vChipIco"></svg><span id="vEst">—</span></div>
           </div>
-          <svg id="flujo" viewBox="0 0 340 158" aria-hidden="true">
-            <!-- sol (se atenúa de noche) -->
+          <svg id="flujo" viewBox="0 0 340 170" aria-hidden="true">
+            <!-- sol (se atenúa cuando no hay producción) -->
             <g id="gSol">
               <circle cx="52" cy="34" r="13" class="sol"/>
-              <path class="srayo" d="M52 14v-6M52 54v6M32 34h-6M72 34h6M38 20l-4-4M66 48l4 4M66 20l4-4M38 48l-4 4"/>
+              <path class="srayo" d="M52 14v-7M52 54v7M32 34h-7M72 34h7M38 20l-5-5M66 48l5 5M66 20l5-5M38 48l-5 5"/>
             </g>
-            <!-- flujos de energía -->
-            <path id="f1" class="fpath" d="M68 46 L 150 60"/>
-            <path id="f2" class="fpath" d="M212 72 V 100"/>
-            <path id="f3" class="fpath" d="M228 112 H 286"/>
-            <!-- autocaravana -->
-            <line x1="92" y1="147" x2="336" y2="147" class="suelo"/>
-            <path class="cuerpo" d="M140 134 H 118 Q 104 134 104 120 V 100 Q 104 90 114 85 L 138 76 H 310 Q 322 76 322 88 V 122 Q 322 134 310 134 Z"/>
-            <!-- placa solar con patas -->
-            <path class="pata" d="M180 70v6M286 70v6"/>
-            <rect x="168" y="60" width="130" height="10" rx="2" class="placa"/>
-            <path class="placagrid" d="M194 60v10M220 60v10M246 60v10M272 60v10"/>
-            <!-- ventanas -->
-            <path class="vidrio" d="M116 88 L 136 81 V 98 H 116 Z"/>
-            <rect x="252" y="86" width="44" height="22" rx="4" class="vidrio"/>
+
+            <!-- suelo -->
+            <line x1="94" y1="158" x2="336" y2="158" class="suelo"/>
+
+            <!-- carrocería translúcida (corte para ver el interior) -->
+            <path class="cuerpo" d="M112 132 V 106 Q112 96 122 92 L 146 84 H 306 Q318 84 318 96 V 132 Q318 144 306 144 H 124 Q112 144 112 132 Z"/>
+            <path class="vidrio" d="M118 104 L 140 94 V 110 H 118 Z"/>
+            <rect x="236" y="96" width="44" height="18" rx="4" class="vidrio"/>
+            <g class="rueda"><circle cx="152" cy="146" r="11"/><circle cx="152" cy="146" r="4.5"/></g>
+            <g class="rueda"><circle cx="280" cy="146" r="11"/><circle cx="280" cy="146" r="4.5"/></g>
+
+            <!-- placa solar sobre el techo -->
+            <path class="pata" d="M178 76v8M288 76v8"/>
+            <rect x="166" y="64" width="134" height="12" rx="2.5" class="placa"/>
+            <path class="placagrid" d="M192 64v12M218 64v12M244 64v12M270 64v12M166 70h134"/>
+
             <!-- batería -->
-            <g class="nico" transform="translate(212,110)">
-              <rect x="-14" y="-8" width="28" height="16" rx="3"/>
-              <path d="M14 -3h3v6h-3M-8 0h5M-5.5 -2.5v5M3 0h5"/>
+            <g class="nico" transform="translate(214,120)">
+              <rect x="-15" y="-8" width="30" height="16" rx="3"/>
+              <path d="M15 -3h3v6h-3M-9 0h5M-6.5 -2.5v5M4 0h5"/>
             </g>
-            <!-- cargas -->
-            <g transform="translate(298,112)">
-              <circle r="11" class="nfill"/>
-              <path class="nico" d="M2 -6 L-3 1h4l-2 6 5 -7h-4z"/>
+            <!-- cargas: la luz del techo -->
+            <g class="nico" transform="translate(290,104)">
+              <circle r="6.5"/>
+              <path d="M-8 6l-2.5 3M8 6l2.5 3M0 8.5v4"/>
             </g>
-            <!-- ruedas -->
-            <g class="rueda"><circle cx="146" cy="136" r="10"/><circle cx="146" cy="136" r="4"/></g>
-            <g class="rueda"><circle cx="284" cy="136" r="10"/><circle cx="284" cy="136" r="4"/></g>
+
+            <!-- FLUJOS: siempre por encima de la carrocería -->
+            <g id="gF1" class="flow">
+              <path class="guia" d="M66 44 Q 104 50 162 66"/>
+              <g class="edot"><circle r="5" class="halo"/><circle r="2.4" class="nucleo"/>
+                <animateMotion dur="1.8s" repeatCount="indefinite" path="M66 44 Q 104 50 162 66"/></g>
+              <g class="edot"><circle r="5" class="halo"/><circle r="2.4" class="nucleo"/>
+                <animateMotion dur="1.8s" begin="0.9s" repeatCount="indefinite" path="M66 44 Q 104 50 162 66"/></g>
+            </g>
+            <g id="gF2" class="flow">
+              <path class="guia" d="M224 78 C 224 96 216 98 216 110"/>
+              <g class="edot"><circle r="5" class="halo"/><circle r="2.4" class="nucleo"/>
+                <animateMotion dur="1.4s" repeatCount="indefinite" path="M224 78 C 224 96 216 98 216 110"/></g>
+              <g class="edot"><circle r="5" class="halo"/><circle r="2.4" class="nucleo"/>
+                <animateMotion dur="1.4s" begin="0.7s" repeatCount="indefinite" path="M224 78 C 224 96 216 98 216 110"/></g>
+            </g>
+            <g id="gF3" class="flow">
+              <path class="guia" d="M231 118 C 254 118 272 114 283 106"/>
+              <g class="edot"><circle r="5" class="halo"/><circle r="2.4" class="nucleo"/>
+                <animateMotion dur="1.6s" repeatCount="indefinite" path="M231 118 C 254 118 272 114 283 106"/></g>
+              <g class="edot"><circle r="5" class="halo"/><circle r="2.4" class="nucleo"/>
+                <animateMotion dur="1.6s" begin="0.8s" repeatCount="indefinite" path="M231 118 C 254 118 272 114 283 106"/></g>
+            </g>
+
+            <!-- datos dentro de la escena -->
+            <text id="fxW" class="dato" x="104" y="36">—</text>
+            <text id="fxBat" class="dato" x="214" y="140">—</text>
+            <text id="fxLoad" class="dato" x="292" y="130">—</text>
           </svg>
         </div>
       </section>
@@ -346,7 +383,13 @@
           <div class="srow"><small class="slabel">Batería</small><b class="sval" id="vV">—</b></div>
           <div class="mwrap">
             <div class="meter"><i class="z1"></i><i class="z2"></i><i class="z3"></i><i class="z4"></i><div class="mdot" id="vVdot" style="left:0%"></div></div>
-            <div class="mticks"><span>11,5</span><span>12,5</span><span>13,5</span><span>14,8 V</span></div>
+            <div class="mticks">
+              <span style="left:0%;transform:none">11,5</span>
+              <span style="left:15.2%">12</span>
+              <span style="left:45.5%">13</span>
+              <span style="left:75.8%">14</span>
+              <span style="left:100%;transform:translateX(-100%)">14,8 V</span>
+            </div>
           </div>
           <div class="srow" style="margin-top:12px"><small class="slabel">Corriente de carga</small><b class="sval" id="vA">—</b></div>
         </div>
@@ -372,7 +415,7 @@
   </div><!-- /vSolar -->
 
   <div class="meta">
-    <span id="metaInfo"><b>app v2.2</b> · firmware —</span>
+    <span id="metaInfo"><b>app v2.3</b> · firmware —</span>
     <button id="cfgBtn">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
       Ajustes
@@ -425,7 +468,8 @@ const vkeyInput=$("#vkey");
 const vW=$("#vW"),vV=$("#vV"),vA=$("#vA"),vKwh=$("#vKwh"),vEst=$("#vEst"),vLoad=$("#vLoad"),vNota=$("#vNota");
 const vChip=$("#vChip"),vChipIco=$("#vChipIco"),vVdot=$("#vVdot"),vSpark=$("#vSpark"),vSparkInfo=$("#vSparkInfo");
 const sHueco=$("#sHueco"),sPanel=$("#sPanel"),sHuecoTit=$("#sHuecoTit"),sHuecoTxt=$("#sHuecoTxt"),sHuecoBtn=$("#sHuecoBtn");
-const f1=$("#f1"),f2=$("#f2"),f3=$("#f3"),gSol=$("#gSol");
+const gF1=$("#gF1"),gF2=$("#gF2"),gF3=$("#gF3"),gSol=$("#gSol");
+const fxW=$("#fxW"),fxBat=$("#fxBat"),fxLoad=$("#fxLoad");
 let ambVivo=true;   // ¿el ESP de Ambiente da señales de vida? (latido ESP-NOW)
 
 /* Estados Victron: etiqueta + color de estado + icono (nunca solo color) */
@@ -563,8 +607,8 @@ function estadoDesde(dv){
     zonesEl.querySelector('[data-z="2"]').classList.toggle("offline",!vivo);
   }
   metaInfo.innerHTML=(fw<FW_ESPERADO)
-    ? `<b>app v2.2</b> · <span style="color:var(--bad)">firmware v${fw} antiguo — reflashea principal-esp32.bin</span>`
-    : `<b>app v2.2</b> · firmware v${fw}${amb}`;
+    ? `<b>app v2.3</b> · <span style="color:var(--bad)">firmware v${fw} antiguo — reflashea principal-esp32.bin</span>`
+    : `<b>app v2.3</b> · firmware v${fw}${amb}`;
   syncUI();
 }
 
@@ -668,9 +712,12 @@ async function leerVic(){
 
   const produce=wOk&&w>0;
   gSol.classList.toggle("apagado",!produce);
-  f1.classList.toggle("on",produce);
-  f2.classList.toggle("on",produce||(iOk&&ibat>0));
-  f3.classList.toggle("on",lOk&&load>0);
+  gF1.classList.toggle("on",produce);
+  gF2.classList.toggle("on",produce||(iOk&&ibat>0));
+  gF3.classList.toggle("on",lOk&&load>0);
+  fxW.textContent=wOk?w+" W":"—";
+  fxBat.textContent=(vOk?(vbat/100).toFixed(2)+" V":"—")+(iOk?" · "+(ibat/10).toFixed(1)+" A":"");
+  fxLoad.textContent=lOk?(load/10).toFixed(1)+" A":"—";
 
   if(edad<=6&&wOk)pushHist(w);
   vNota.innerHTML=edad<=6?'<span class="live"></span>Datos en vivo del regulador':`Último dato hace ${edad} s`;
