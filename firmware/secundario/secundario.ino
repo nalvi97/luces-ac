@@ -30,7 +30,7 @@
 #define OP_HB     4   // latido: "estoy vivo", lo escucha el principal
 #define OP_OTA    5   // entra en modo actualización por WiFi
 #define OP_VIC    6   // datos del Victron hacia el principal
-#define FW_VER    8   // viaja en el campo count del latido
+#define FW_VER    9   // viaja en el campo count del latido
 
 struct __attribute__((packed)) Pkt {
   uint16_t magic;
@@ -238,10 +238,14 @@ void setup() {
     NimBLEDevice::init("");
     NimBLEScan* scan = NimBLEDevice::getScan();
     scan->setScanCallbacks(&vicCB, false);
-    scan->setActiveScan(true);
+    scan->setActiveScan(false);             // pasivo: el dato viaja en el propio anuncio
     scan->setMaxResults(0);                 // solo callbacks, sin almacenar
     scan->setDuplicateFilter(false);        // los anuncios cambian: queremos todos
-    scan->start(0, false);                  // escaneo continuo
+    // Ciclo de trabajo reducido: la radio se comparte con ESP-NOW y un escaneo
+    // continuo se come los comandos de la tira (60 ms de escucha cada 300 ms).
+    scan->setInterval(300);
+    scan->setWindow(60);
+    scan->start(0, false);                  // escaneo indefinido
     Serial.println("[VIC] escaneando anuncios del Victron");
   }
 }

@@ -45,7 +45,7 @@ static const char* UUID_VIC = "7e57c0de-a005-4f0e-9a2b-1c2d3e4f5a01";
 #define OP_HB     4   // latido del secundario
 #define OP_OTA    5   // entra en modo actualización por WiFi
 #define OP_VIC    6   // datos del Victron que envía el secundario
-#define FW_VER    8   // se publica en el primer byte del estado BLE
+#define FW_VER    9   // se publica en el primer byte del estado BLE
 
 struct __attribute__((packed)) Pkt {
   uint16_t magic;
@@ -169,8 +169,14 @@ void aplicarLocal(int i) {
   t->setSpeed(zonas[i].speed);
 }
 
+// El secundario reparte su radio entre BLE (Victron) y ESP-NOW, así que un
+// paquete suelto puede pillarle escaneando. Cada envío se repite 2 veces más
+// desde loop(), espaciado 60 ms — los comandos son idempotentes.
+Pkt pendC; volatile uint8_t pendCn = 0; uint32_t pendCt = 0;
+
 void enviarEspNow(const Pkt& p) {
   esp_now_send(bcast, (const uint8_t*)&p, sizeof(p));
+  pendC = p; pendCn = 2; pendCt = millis();
 }
 
 // ── Procesar un comando (venga de BLE o de un interruptor) ──
@@ -238,8 +244,8 @@ class CfgCB : public NimBLECharacteristicCallbacks {
     } else {
       prefs.getBytes("vk", p.clave, 16);            // conserva la clave existente
     }
-    enviarEspNow(p);                                // el secundario guarda y se reinicia
-    delay(150);
+    // Triple envío directo (tras esto reiniciamos: loop() ya no podrá reintentar)
+    for (int r = 0; r < 3; r++) { esp_now_send(bcast, (const uint8_t*)&p, sizeof(p)); delay(60); }
     ESP.restart();                                  // reinicio limpio con la nueva configuración
   }
 };
@@ -409,6 +415,12 @@ void loop() {
   // latido esté al día cuando la app la sondea), sin notificar.
   static uint32_t tEstado = 0;
   if (millis() - tEstado > 2000) { tEstado = millis(); ponerEstado(false); ponerVic(); }
+
+  // Reintentos ESP-NOW pendientes hacia el secundario
+  if (pendCn && millis() - pendCt > 60) {
+    pendCt = millis(); pendCn--;
+    esp_now_send(bcast, (const uint8_t*)&pendC, sizeof(pendC));
+  }
 
   // Barrido antifantasma: con la tira parada, el ruido eléctrico en la línea
   // de datos puede "encender" LEDs sueltos (típico: los primeros) y nadie los
