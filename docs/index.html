@@ -208,7 +208,7 @@
   </section>
 
   <div class="meta">
-    <span id="metaInfo"><b>app v1.5</b> · firmware —</span>
+    <span id="metaInfo"><b>app v1.6</b> · firmware —</span>
     <button id="cfgBtn">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
       Ajustes
@@ -253,7 +253,7 @@ const ORDENES=["GRB (normal)","RGB","BGR","BRG","GBR","RBG"];
 oInputs.forEach(sel=>{
   ORDENES.forEach((n,v)=>{const o=document.createElement("option");o.value=v;o.textContent=n;sel.appendChild(o)});
 });
-const FW_ESPERADO=5;
+const FW_ESPERADO=6;
 
 /* ═══════════ Constantes de protocolo (== firmware) ═══════════ */
 const UUID_SVC="7e57c0de-a001-4f0e-9a2b-1c2d3e4f5a01";
@@ -347,12 +347,13 @@ function estadoDesde(dv){
   let amb="";
   if(dv.byteLength>=26){
     const edad=dv.getUint8(25), vivo=edad<10;
-    amb=vivo?` · Ambiente ✓`:` · <span style="color:var(--bad)">Ambiente sin señal</span>`;
+    const vSec=dv.byteLength>=27?dv.getUint8(26):0;
+    amb=vivo?` · Ambiente ✓${vSec?` v${vSec}`:""}`:` · <span style="color:var(--bad)">Ambiente sin señal</span>`;
     zonesEl.querySelector('[data-z="2"]').classList.toggle("offline",!vivo);
   }
   metaInfo.innerHTML=(fw<FW_ESPERADO)
-    ? `<b>app v1.5</b> · <span style="color:var(--bad)">firmware v${fw} antiguo — reflashea principal-esp32.bin</span>`
-    : `<b>app v1.5</b> · firmware v${fw}${amb}`;
+    ? `<b>app v1.6</b> · <span style="color:var(--bad)">firmware v${fw} antiguo — reflashea principal-esp32.bin</span>`
+    : `<b>app v1.6</b> · firmware v${fw}${amb}`;
   syncUI();
 }
 

@@ -24,6 +24,7 @@
 #define OP_SET    1
 #define OP_CONFIG 2
 #define OP_HB     4   // latido: "estoy vivo", lo escucha el principal
+#define FW_VER    6   // viaja en el campo count del latido
 
 struct __attribute__((packed)) Pkt {
   uint16_t magic;
@@ -52,6 +53,7 @@ neoPixelType ordenTipo(uint8_t o) {
 Preferences prefs;
 WS2812FX* tira;
 uint8_t bcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+bool encendida = true;   // estado lógico de la tira (para el barrido antifantasma)
 
 // El callback de ESP-NOW corre en el hilo WiFi: guardamos y aplicamos en loop()
 volatile bool pendiente = false;
@@ -78,6 +80,7 @@ void aplicar(const Pkt& p) {
   Serial.printf("[RX] SET: on=%u rgb=(%u,%u,%u) bri=%u fx=%u speed=%u\n",
                 p.on, p.r, p.g, p.b, p.bri, p.fx, p.speed);
   // Quirk WS2812FX: brillo 0 = "sin escalado" (=máximo). Apagar = stop().
+  encendida = p.on;
   if (!p.on) { tira->stop(); return; }
   if (!tira->isRunning()) tira->start();
   tira->setBrightness(p.bri > 0 ? p.bri : 1);
@@ -128,6 +131,15 @@ void loop() {
   if (millis() - tHB > 3000) {
     tHB = millis();
     Pkt p = {}; p.magic = MAGIC; p.op = OP_HB; p.mask = 0b100;
+    p.count = FW_VER;   // la versión viaja en el latido
     esp_now_send(bcast, (const uint8_t*)&p, sizeof(p));
+  }
+
+  // Barrido antifantasma: apagada, reenvía el negro cada segundo para borrar
+  // LEDs "encendidos" por ruido en la línea de datos.
+  static uint32_t tNegro = 0;
+  if (millis() - tNegro > 1000) {
+    tNegro = millis();
+    if (!encendida) tira->strip_off();
   }
 }
