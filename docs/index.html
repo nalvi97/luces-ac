@@ -34,6 +34,18 @@
   .pill.icon{padding:9px 12px}
   .pill svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round}
 
+  .tabs{display:flex;gap:8px}
+  .tab{flex:1;border:1px solid var(--line);background:var(--surface);color:var(--muted);
+    font:inherit;font-size:13.5px;font-weight:700;padding:10px 0;border-radius:12px;cursor:pointer}
+  .tab[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+  .vista{display:flex;flex-direction:column;gap:18px}
+  .vista[hidden]{display:none}
+  .vgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .vtile{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+    padding:13px 14px;display:flex;flex-direction:column;gap:5px}
+  .vtile small{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:1.2px}
+  .vtile b{font-size:21px;font-variant-numeric:tabular-nums}
+
   section{display:flex;flex-direction:column;gap:10px}
   .sec-head h3{margin:0;font-size:11px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted)}
 
@@ -155,6 +167,13 @@
     </div>
   </div>
 
+  <div class="tabs">
+    <button class="tab" data-t="luces" aria-pressed="true">Luces</button>
+    <button class="tab" data-t="solar" aria-pressed="false">Solar</button>
+  </div>
+
+  <div id="vLuces" class="vista">
+
   <section>
     <div class="sec-head"><h3>Zona</h3></div>
     <div class="zones" id="zones">
@@ -207,8 +226,25 @@
     </div>
   </section>
 
+  </div><!-- /vLuces -->
+
+  <div id="vSolar" class="vista" hidden>
+    <section>
+      <div class="sec-head"><h3>Solar · Victron MPPT</h3></div>
+      <div class="vgrid">
+        <div class="vtile"><small>Potencia solar</small><b id="vW">—</b></div>
+        <div class="vtile"><small>Batería</small><b id="vV">—</b></div>
+        <div class="vtile"><small>Corriente de carga</small><b id="vA">—</b></div>
+        <div class="vtile"><small>Producido hoy</small><b id="vKwh">—</b></div>
+        <div class="vtile"><small>Estado</small><b id="vEst">—</b></div>
+        <div class="vtile"><small>Salida de cargas</small><b id="vLoad">—</b></div>
+      </div>
+      <p id="vNota" style="color:var(--muted);font-size:12.5px;margin:2px 0 0;line-height:1.5">Esperando datos…</p>
+    </section>
+  </div><!-- /vSolar -->
+
   <div class="meta">
-    <span id="metaInfo"><b>app v1.7</b> · firmware —</span>
+    <span id="metaInfo"><b>app v2.0</b> · firmware —</span>
     <button id="cfgBtn">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
       Ajustes
@@ -226,12 +262,15 @@
   <div class="field"><label for="o0">Orden color · Izq</label><select id="o0"></select></div>
   <div class="field"><label for="o1">Orden color · Dcha</label><select id="o1"></select></div>
   <div class="field"><label for="o2">Orden color · Ambiente</label><select id="o2"></select></div>
+  <p style="margin:14px 0 8px">Clave del Victron (VictronConnect → Info del producto → <i>Instant readout</i> → clave de cifrado). Vacío = desactivado.</p>
+  <div class="field"><input type="text" id="vkey" style="width:100%;text-align:left;font-family:monospace" placeholder="32 caracteres hexadecimales" maxlength="32" autocomplete="off"></div>
   <p style="margin:14px 0 10px">Actualizar firmware por WiFi (OTA): el ESP abre su propia red <b>LucesAC-OTA</b> (clave <b>luces-ac</b>) con una página para subir el <code>.bin</code>. Sin cables ni desmontar nada.</p>
   <div class="dlg-actions" style="justify-content:flex-start;margin-top:0;margin-bottom:14px">
     <button class="btn ghost" id="otaP">OTA principal</button>
     <button class="btn ghost" id="otaS">OTA ambiente</button>
   </div>
   <div class="dlg-actions">
+    <button class="btn ghost" id="btnDesc" style="margin-right:auto">Desconectar</button>
     <button class="btn ghost" id="cfgClose">Cerrar</button>
     <button class="btn primary" id="cfgSave">Guardar en el ESP</button>
   </div>
@@ -254,17 +293,28 @@ const fxrow=$("#fxrow"), dlg=$("#cfg"), toastEl=$("#toast");
 const nInputs=[$("#n0"),$("#n1"),$("#n2")];
 const oInputs=[$("#o0"),$("#o1"),$("#o2")];
 const metaInfo=$("#metaInfo");
+const vkeyInput=$("#vkey");
+const vW=$("#vW"),vV=$("#vV"),vA=$("#vA"),vKwh=$("#vKwh"),vEst=$("#vEst"),vLoad=$("#vLoad"),vNota=$("#vNota");
+const VIC_ESTADOS={0:"Apagado",1:"Batería baja",2:"Fallo",3:"Bulk",4:"Absorción",5:"Flotación",6:"Almacenamiento",7:"Ecualización",245:"Arrancando",247:"Ecualización auto",252:"Control externo"};
+
+/* Pestañas Luces / Solar */
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-pressed",String(t===b)));
+  $("#vLuces").hidden=b.dataset.t!=="luces";
+  $("#vSolar").hidden=b.dataset.t!=="solar";
+}));
 const ORDENES=["GRB (normal)","RGB","BGR","BRG","GBR","RBG"];
 oInputs.forEach(sel=>{
   ORDENES.forEach((n,v)=>{const o=document.createElement("option");o.value=v;o.textContent=n;sel.appendChild(o)});
 });
-const FW_ESPERADO=7;
+const FW_ESPERADO=8;
 
 /* ═══════════ Constantes de protocolo (== firmware) ═══════════ */
 const UUID_SVC="7e57c0de-a001-4f0e-9a2b-1c2d3e4f5a01";
 const UUID_CMD="7e57c0de-a002-4f0e-9a2b-1c2d3e4f5a01";
 const UUID_EST="7e57c0de-a003-4f0e-9a2b-1c2d3e4f5a01";
 const UUID_CFG="7e57c0de-a004-4f0e-9a2b-1c2d3e4f5a01";
+const UUID_VIC="7e57c0de-a005-4f0e-9a2b-1c2d3e4f5a01";
 const MAGIC=0xAC1E, OP_SET=1, OP_POWER=3, OP_OTA=5;
 
 /* Modos WS2812FX (id real de la librería) */
@@ -275,7 +325,7 @@ const FX=[[0,"Estático"],[2,"Respirar"],[3,"Barrido"],[11,"Arcoíris"],[12,"Arc
 /* ═══════════ Estado de la app (espejo del firmware) ═══════════ */
 const zs=[0,1,2].map(()=>({on:true,r:255,g:170,b:80,bri:150,fx:0,speed:1000}));
 let sel="all", sync=false, activeScene=null;
-let device=null, chCmd=null, chCfg=null, chEst=null;
+let device=null, chCmd=null, chCfg=null, chEst=null, chVic=null;
 
 const targets=()=>(sync||sel==="all")?[0,1,2]:[Number(sel)];
 const first=()=>zs[targets()[0]];
@@ -303,7 +353,7 @@ const ms2spd=ms=>Math.round(1+99*Math.log(Math.min(Math.max(ms,100),5000)/5000)/
 
 /* ═══════════ BLE ═══════════ */
 function pkt(mask,z){
-  const b=new ArrayBuffer(15),d=new DataView(b);
+  const b=new ArrayBuffer(31),d=new DataView(b);
   d.setUint16(0,MAGIC,true); d.setUint8(2,OP_SET); d.setUint8(3,mask);
   d.setUint8(4,z.on?1:0); d.setUint8(5,z.r); d.setUint8(6,z.g); d.setUint8(7,z.b);
   d.setUint8(8,z.bri); d.setUint8(9,z.fx); d.setUint16(10,z.speed,true); d.setUint16(12,0,true);
@@ -357,8 +407,8 @@ function estadoDesde(dv){
     zonesEl.querySelector('[data-z="2"]').classList.toggle("offline",!vivo);
   }
   metaInfo.innerHTML=(fw<FW_ESPERADO)
-    ? `<b>app v1.7</b> · <span style="color:var(--bad)">firmware v${fw} antiguo — reflashea principal-esp32.bin</span>`
-    : `<b>app v1.7</b> · firmware v${fw}${amb}`;
+    ? `<b>app v2.0</b> · <span style="color:var(--bad)">firmware v${fw} antiguo — reflashea principal-esp32.bin</span>`
+    : `<b>app v2.0</b> · firmware v${fw}${amb}`;
   syncUI();
 }
 
@@ -387,7 +437,12 @@ async function conectar(){
       const cfg=await chCfg.readValue();
       for(let i=0;i<3;i++)nInputs[i].value=cfg.getUint16(i*2,true);
       if(cfg.byteLength>=9)for(let i=0;i<3;i++)oInputs[i].value=cfg.getUint8(6+i);
+      if(cfg.byteLength>=25){
+        let k="";for(let i=0;i<16;i++)k+=cfg.getUint8(9+i).toString(16).padStart(2,"0");
+        vkeyInput.value=/^0+$/.test(k)?"":k;
+      }
     }catch(e){}
+    try{chVic=await svc.getCharacteristic(UUID_VIC);leerVic()}catch(e){chVic=null}
     cover.classList.add("oculto");
     connPill.classList.add("on");
     connTxt.textContent=device.name||"AC-Luces";
@@ -398,7 +453,7 @@ async function conectar(){
   }
 }
 function desconectado(){
-  chCmd=null;chCfg=null;chEst=null;
+  chCmd=null;chCfg=null;chEst=null;chVic=null;
   connPill.classList.remove("on");
   cover.classList.remove("oculto");
   coverBtn.textContent="Reconectar";
@@ -412,7 +467,34 @@ connPill.addEventListener("click",()=>{ if(!chCmd)conectar() });
 setInterval(async()=>{
   if(!chEst||sending||cola.length)return;
   try{estadoDesde(await chEst.readValue())}catch(e){}
+  leerVic();
 },4000);
+
+/* ═══════════ Panel Solar (Victron) ═══════════ */
+async function leerVic(){
+  if(!chVic)return;
+  let dv;try{dv=await chVic.readValue()}catch(e){return}
+  if(dv.byteLength<13)return;
+  const edad=dv.getUint8(0),estado=dv.getUint8(1),err=dv.getUint8(2);
+  if(estado===0xFE){vNota.textContent="Clave Victron incorrecta — revísala en Ajustes.";return}
+  if(edad===255){vNota.textContent="Sin datos del Victron aún. ¿Clave puesta en Ajustes e Instant Readout activado en VictronConnect?";return}
+  const vbat=dv.getInt16(3,true),ibat=dv.getInt16(5,true);
+  const w=dv.getUint16(7,true),whdia=dv.getUint16(9,true),load=dv.getUint16(11,true);
+  vW.textContent=(w===0xFFFF?"—":w+" W");
+  vV.textContent=(vbat===0x7FFF?"—":(vbat/100).toFixed(2)+" V");
+  vA.textContent=(ibat===0x7FFF?"—":(ibat/10).toFixed(1)+" A");
+  vKwh.textContent=(whdia===0xFFFF?"—":(whdia/100).toFixed(2)+" kWh");
+  vEst.textContent=(err&&err!==0xFF)?`Error ${err}`:(VIC_ESTADOS[estado]??`Estado ${estado}`);
+  vLoad.textContent=(load===0x1FF?"—":(load/10).toFixed(1)+" A");
+  vNota.textContent=edad<=6?"Datos en vivo del regulador.":`Último dato hace ${edad} s.`;
+}
+
+/* Desconectar manualmente */
+$("#btnDesc").addEventListener("click",()=>{
+  dlg.close();
+  if(device&&device.gatt&&device.gatt.connected)device.gatt.disconnect();
+  else desconectado();
+});
 
 /* ═══════════ UI: zonas y sync ═══════════ */
 function refreshDots(){
@@ -442,7 +524,7 @@ powerBtn.addEventListener("click",()=>{
   const encender=!targets().some(i=>zs[i].on);
   targets().forEach(i=>zs[i].on=encender);
   const mask=targets().reduce((m,i)=>m|(1<<i),0);
-  const b=new ArrayBuffer(15),d=new DataView(b);
+  const b=new ArrayBuffer(31),d=new DataView(b);
   d.setUint16(0,MAGIC,true);d.setUint8(2,OP_POWER);d.setUint8(3,mask);d.setUint8(4,encender?1:0);
   enviarRaw(b);
   refreshDots();
@@ -582,9 +664,12 @@ $("#cfgBtn").addEventListener("click",()=>dlg.showModal());
 $("#cfgClose").addEventListener("click",()=>dlg.close());
 $("#cfgSave").addEventListener("click",async()=>{
   if(!chCfg){toast("Sin conexión");return}
-  const buf=new ArrayBuffer(9),d=new DataView(buf);
+  const kx=vkeyInput.value.trim();
+  if(kx&&!/^[0-9a-fA-F]{32}$/.test(kx)){toast("La clave Victron son 32 caracteres hex");return}
+  const buf=new ArrayBuffer(25),d=new DataView(buf);
   for(let i=0;i<3;i++)d.setUint16(i*2,Math.min(1000,Math.max(1,Number(nInputs[i].value)||60)),true);
   for(let i=0;i<3;i++)d.setUint8(6+i,Number(oInputs[i].value)||0);
+  for(let i=0;i<16;i++)d.setUint8(9+i,kx?parseInt(kx.substr(i*2,2),16):0);
   try{
     await chCfg.writeValue(buf);
   }catch(e){ /* el ESP se reinicia y corta antes de confirmar: es normal */ }
@@ -596,7 +681,7 @@ $("#cfgSave").addEventListener("click",async()=>{
 let otaInfo=null;
 function pedirOTA(mask,ssid,fichero){
   if(!chCmd){toast("Sin conexión");return}
-  const b=new ArrayBuffer(15),d=new DataView(b);
+  const b=new ArrayBuffer(31),d=new DataView(b);
   d.setUint16(0,MAGIC,true);d.setUint8(2,OP_OTA);d.setUint8(3,mask);
   enviarRaw(b);
   dlg.close();

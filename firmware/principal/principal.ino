@@ -35,6 +35,7 @@ static const char* UUID_SVC = "7e57c0de-a001-4f0e-9a2b-1c2d3e4f5a01";
 static const char* UUID_CMD = "7e57c0de-a002-4f0e-9a2b-1c2d3e4f5a01";
 static const char* UUID_EST = "7e57c0de-a003-4f0e-9a2b-1c2d3e4f5a01";
 static const char* UUID_CFG = "7e57c0de-a004-4f0e-9a2b-1c2d3e4f5a01";
+static const char* UUID_VIC = "7e57c0de-a005-4f0e-9a2b-1c2d3e4f5a01";
 
 // ── Protocolo compartido (BLE y ESP-NOW, little-endian) ─────
 #define MAGIC 0xAC1E
@@ -43,7 +44,8 @@ static const char* UUID_CFG = "7e57c0de-a004-4f0e-9a2b-1c2d3e4f5a01";
 #define OP_POWER  3
 #define OP_HB     4   // latido del secundario
 #define OP_OTA    5   // entra en modo actualización por WiFi
-#define FW_VER    7   // se publica en el primer byte del estado BLE
+#define OP_VIC    6   // datos del Victron que envía el secundario
+#define FW_VER    8   // se publica en el primer byte del estado BLE
 
 struct __attribute__((packed)) Pkt {
   uint16_t magic;
@@ -53,9 +55,23 @@ struct __attribute__((packed)) Pkt {
   uint8_t  r, g, b;
   uint8_t  bri;     // 0-255
   uint8_t  fx;      // modo WS2812FX
-  uint16_t speed;   // ms por ciclo WS2812FX (mayor = más lento)
-  uint16_t count;   // OP_CONFIG: nº de LEDs
-  uint8_t  orden;   // OP_CONFIG: orden de color (0=GRB 1=RGB 2=BGR 3=BRG 4=GBR 5=RBG)
+  uint16_t speed;      // ms por ciclo WS2812FX (mayor = más lento)
+  uint16_t count;      // OP_CONFIG: nº de LEDs
+  uint8_t  orden;      // OP_CONFIG: orden de color (0=GRB 1=RGB 2=BGR 3=BRG 4=GBR 5=RBG)
+  uint8_t  clave[16];  // OP_CONFIG: clave AES del Victron (todo ceros = desactivado)
+};
+
+// Datos del Victron que llegan del secundario por ESP-NOW
+struct __attribute__((packed)) PktVic {
+  uint16_t magic;
+  uint8_t  op;       // OP_VIC
+  uint8_t  estado;   // device state Victron; 0xFE = clave incorrecta
+  uint8_t  error;
+  int16_t  vbat;     // 0.01 V
+  int16_t  ibat;     // 0.1 A
+  uint16_t wsolar;   // W
+  uint16_t whdia;    // unidades de 10 Wh
+  uint16_t iload;    // 0.1 A; 0x1FF = no disponible
 };
 
 struct Zona { bool on; uint8_t r, g, b, bri, fx; uint16_t speed; };
@@ -85,6 +101,10 @@ volatile uint32_t ultimoHB = 0;   // último latido ESP-NOW del secundario
 volatile uint8_t  verSec = 0;     // versión de firmware que anuncia el secundario
 volatile bool otaPedido = false;  // la app ha pedido entrar en modo OTA
 
+NimBLECharacteristic* chVic = nullptr;
+PktVic vic = {0, 0, 0xFF, 0xFF, 0, 0, 0, 0, 0x1FF};
+uint32_t vicMillis = 0;           // cuándo llegó el último dato del Victron
+
 // ── Estado → BLE (27 bytes: versión + 3 zonas × 8 + edad latido + ver. secundario) ──
 void ponerEstado(bool notificar) {
   uint8_t buf[27];
@@ -104,13 +124,36 @@ void ponerEstado(bool notificar) {
 void notificarEstado() { ponerEstado(true); }
 
 void alRecibirEspNow(const esp_now_recv_info_t*, const uint8_t* data, int len) {
-  if (len < (int)sizeof(Pkt)) return;
-  Pkt p; memcpy(&p, data, sizeof(Pkt));
-  if (p.magic != MAGIC) return;
-  if (p.op == OP_HB && (p.mask & 0b100)) {
-    ultimoHB = millis();
-    verSec = p.count > 255 ? 255 : (uint8_t)p.count;   // el HB trae la versión en count
+  if (len < 4) return;
+  uint16_t magic = data[0] | (data[1] << 8);
+  if (magic != MAGIC) return;
+  uint8_t op = data[2];
+  if (op == OP_HB && len >= (int)sizeof(Pkt)) {
+    Pkt p; memcpy(&p, data, sizeof(Pkt));
+    if (p.mask & 0b100) {
+      ultimoHB = millis();
+      verSec = p.count > 255 ? 255 : (uint8_t)p.count;   // el HB trae la versión en count
+    }
+  } else if (op == OP_VIC && len >= (int)sizeof(PktVic)) {
+    memcpy(&vic, data, sizeof(PktVic));
+    vicMillis = millis();
   }
+}
+
+// Publica los datos del Victron en su característica BLE (14 bytes)
+void ponerVic() {
+  if (!chVic) return;
+  uint8_t vb[14];
+  uint32_t edad = vicMillis ? (millis() - vicMillis) / 1000 : 255;
+  vb[0] = edad > 255 ? 255 : (uint8_t)edad;
+  vb[1] = vic.estado; vb[2] = vic.error;
+  memcpy(vb + 3,  &vic.vbat,   2);
+  memcpy(vb + 5,  &vic.ibat,   2);
+  memcpy(vb + 7,  &vic.wsolar, 2);
+  memcpy(vb + 9,  &vic.whdia,  2);
+  memcpy(vb + 11, &vic.iload,  2);
+  vb[13] = 0;
+  chVic->setValue(vb, sizeof(vb));
 }
 
 // ── Aplicar estado de una zona local a su tira ──────────────
@@ -178,7 +221,7 @@ class CmdCB : public NimBLECharacteristicCallbacks {
 class CfgCB : public NimBLECharacteristicCallbacks {
   void onWrite(NimBLECharacteristic* c, NimBLEConnInfo&) override {
     NimBLEAttValue v = c->getValue();
-    if (v.size() < 9) return;                       // 3×uint16 LE (LEDs) + 3×uint8 (orden color)
+    if (v.size() < 9) return;   // 3×uint16 (LEDs) + 3×uint8 (orden) [+ 16 clave Victron]
     const uint8_t* d = v.data();
     uint16_t n0 = d[0] | (d[1] << 8), n1 = d[2] | (d[3] << 8), n2 = d[4] | (d[5] << 8);
     prefs.putUShort("n0", n0);
@@ -189,6 +232,12 @@ class CfgCB : public NimBLECharacteristicCallbacks {
     prefs.putUChar("o2", d[8]);
     Pkt p = {}; p.magic = MAGIC; p.op = OP_CONFIG; p.mask = 0b100;
     p.count = n2; p.orden = d[8];
+    if (v.size() >= 25) {
+      memcpy(p.clave, d + 9, 16);                   // clave nueva para el secundario
+      prefs.putBytes("vk", p.clave, 16);
+    } else {
+      prefs.getBytes("vk", p.clave, 16);            // conserva la clave existente
+    }
     enviarEspNow(p);                                // el secundario guarda y se reinicia
     delay(150);
     ESP.restart();                                  // reinicio limpio con la nueva configuración
@@ -326,11 +375,15 @@ void setup() {
   NimBLECharacteristic* chCfg = svc->createCharacteristic(
       UUID_CFG, NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE);
   chCfg->setCallbacks(new CfgCB());
-  uint8_t cfg[9] = {(uint8_t)(numLeds[0] & 0xFF), (uint8_t)(numLeds[0] >> 8),
-                    (uint8_t)(numLeds[1] & 0xFF), (uint8_t)(numLeds[1] >> 8),
-                    (uint8_t)(numLeds[2] & 0xFF), (uint8_t)(numLeds[2] >> 8),
-                    ordenes[0], ordenes[1], ordenes[2]};
-  chCfg->setValue(cfg, 9);
+
+  chVic = svc->createCharacteristic(UUID_VIC, NIMBLE_PROPERTY::READ);
+  ponerVic();
+  uint8_t cfg[25] = {(uint8_t)(numLeds[0] & 0xFF), (uint8_t)(numLeds[0] >> 8),
+                     (uint8_t)(numLeds[1] & 0xFF), (uint8_t)(numLeds[1] >> 8),
+                     (uint8_t)(numLeds[2] & 0xFF), (uint8_t)(numLeds[2] >> 8),
+                     ordenes[0], ordenes[1], ordenes[2]};
+  prefs.getBytes("vk", cfg + 9, 16);   // clave Victron (ceros si no hay)
+  chCfg->setValue(cfg, 25);
 
   svc->start();
   NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
@@ -355,7 +408,7 @@ void loop() {
   // Refresca la característica de estado cada 2 s (para que la edad del
   // latido esté al día cuando la app la sondea), sin notificar.
   static uint32_t tEstado = 0;
-  if (millis() - tEstado > 2000) { tEstado = millis(); ponerEstado(false); }
+  if (millis() - tEstado > 2000) { tEstado = millis(); ponerEstado(false); ponerVic(); }
 
   // Barrido antifantasma: con la tira parada, el ruido eléctrico en la línea
   // de datos puede "encender" LEDs sueltos (típico: los primeros) y nadie los

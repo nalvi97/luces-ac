@@ -17,6 +17,8 @@
 #include <WS2812FX.h>
 #include <WebServer.h>
 #include <Update.h>
+#include <NimBLEDevice.h>
+#include "mbedtls/aes.h"
 
 #define PIN_TIRA   16
 #define LEDS_DEF   60
@@ -27,7 +29,8 @@
 #define OP_CONFIG 2
 #define OP_HB     4   // latido: "estoy vivo", lo escucha el principal
 #define OP_OTA    5   // entra en modo actualización por WiFi
-#define FW_VER    7   // viaja en el campo count del latido
+#define OP_VIC    6   // datos del Victron hacia el principal
+#define FW_VER    8   // viaja en el campo count del latido
 
 struct __attribute__((packed)) Pkt {
   uint16_t magic;
@@ -39,7 +42,21 @@ struct __attribute__((packed)) Pkt {
   uint8_t  fx;
   uint16_t speed;
   uint16_t count;
-  uint8_t  orden;   // 0=GRB 1=RGB 2=BGR 3=BRG 4=GBR 5=RBG
+  uint8_t  orden;      // 0=GRB 1=RGB 2=BGR 3=BRG 4=GBR 5=RBG
+  uint8_t  clave[16];  // OP_CONFIG: clave AES del Victron (todo ceros = desactivado)
+};
+
+// Datos del Victron rumbo al principal (Instant Readout descifrado)
+struct __attribute__((packed)) PktVic {
+  uint16_t magic;
+  uint8_t  op;       // OP_VIC
+  uint8_t  estado;   // device state Victron; 0xFE = clave incorrecta
+  uint8_t  error;
+  int16_t  vbat;     // 0.01 V
+  int16_t  ibat;     // 0.1 A
+  uint16_t wsolar;   // W
+  uint16_t whdia;    // unidades de 10 Wh
+  uint16_t iload;    // 0.1 A; 0x1FF = no disponible
 };
 
 neoPixelType ordenTipo(uint8_t o) {
@@ -58,6 +75,47 @@ WS2812FX* tira;
 uint8_t bcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 bool encendida = true;   // estado lógico de la tira (para el barrido antifantasma)
 volatile bool otaPedido = false;
+
+// ── Victron Instant Readout ─────────────────────────────────
+uint8_t claveVic[16] = {0};
+bool vicScanOn = false;
+PktVic vicDatos = {MAGIC, OP_VIC, 0xFF, 0xFF, 0, 0, 0, 0, 0x1FF};
+volatile bool vicNuevo = false, vicClaveMal = false;
+
+// Anuncio Victron (datos de fabricante): [0-1] empresa 0x02E1 · [2-3] prefijo
+// [4-5] modelo · [6] tipo de registro (0x01 = cargador solar) · [7-8] IV LE
+// [9] byte de comprobación (= clave[0], sin cifrar) · [10..] payload AES-CTR
+class VicScanCB : public NimBLEScanCallbacks {
+  void onResult(const NimBLEAdvertisedDevice* dev) override {
+    std::string md = dev->getManufacturerData();
+    if (md.size() < 21) return;
+    const uint8_t* d = (const uint8_t*)md.data();
+    if (d[0] != 0xE1 || d[1] != 0x02) return;    // Victron Energy BV
+    if (d[6] != 0x01) return;                    // solo registros de cargador solar
+    if (d[9] != claveVic[0]) { vicClaveMal = true; return; }
+
+    uint8_t ctr[16] = {d[7], d[8]};              // IV little-endian, resto 0
+    uint8_t sblk[16]; size_t off = 0;
+    uint8_t plano[16] = {0};
+    size_t nc = md.size() - 10; if (nc > 16) nc = 16;
+    mbedtls_aes_context aes;
+    mbedtls_aes_init(&aes);
+    mbedtls_aes_setkey_enc(&aes, claveVic, 128);
+    mbedtls_aes_crypt_ctr(&aes, nc, &off, ctr, sblk, d + 10, plano);
+    mbedtls_aes_free(&aes);
+
+    // Orden de campos verificado contra victron-ble (solar_charger.py)
+    vicDatos.estado = plano[0];
+    vicDatos.error  = plano[1];
+    vicDatos.vbat   = (int16_t)(plano[2] | (plano[3] << 8));
+    vicDatos.ibat   = (int16_t)(plano[4] | (plano[5] << 8));
+    vicDatos.whdia  = plano[6] | (plano[7] << 8);
+    vicDatos.wsolar = plano[8] | (plano[9] << 8);
+    vicDatos.iload  = plano[10] | ((plano[11] & 0x01) << 8);
+    vicNuevo = true;
+  }
+};
+VicScanCB vicCB;
 
 // El callback de ESP-NOW corre en el hilo WiFi: guardamos y aplicamos en loop()
 volatile bool pendiente = false;
@@ -78,6 +136,7 @@ void aplicar(const Pkt& p) {
     Serial.printf("[RX] CONFIG: %u LEDs, orden %u -> guardo y reinicio\n", p.count, p.orden);
     prefs.putUShort("n2", p.count);
     prefs.putUChar("o2", p.orden);
+    prefs.putBytes("vk", p.clave, 16);
     delay(100);
     ESP.restart();
     return;
@@ -100,6 +159,7 @@ uint32_t otaUltimo = 0;
 
 void entrarModoOTA() {
   Serial.println("[OTA] WiFi 'LucesAC-OTA-AMB' (clave luces-ac) -> http://192.168.4.1");
+  if (vicScanOn) NimBLEDevice::deinit(true);   // radio limpia para el modo OTA
   esp_now_deinit();
   WiFi.mode(WIFI_AP);
   WiFi.softAP("LucesAC-OTA-AMB", "luces-ac");
@@ -170,6 +230,20 @@ void setup() {
   } else {
     Serial.println("[ESP-NOW] error al iniciar");
   }
+
+  // Escaneo BLE del Victron, solo si hay clave configurada
+  prefs.getBytes("vk", claveVic, 16);
+  for (int i = 0; i < 16; i++) if (claveVic[i]) { vicScanOn = true; break; }
+  if (vicScanOn) {
+    NimBLEDevice::init("");
+    NimBLEScan* scan = NimBLEDevice::getScan();
+    scan->setScanCallbacks(&vicCB, false);
+    scan->setActiveScan(true);
+    scan->setMaxResults(0);                 // solo callbacks, sin almacenar
+    scan->setDuplicateFilter(false);        // los anuncios cambian: queremos todos
+    scan->start(0, false);                  // escaneo continuo
+    Serial.println("[VIC] escaneando anuncios del Victron");
+  }
 }
 
 void loop() {
@@ -196,5 +270,16 @@ void loop() {
   if (millis() - tNegro > 1000) {
     tNegro = millis();
     if (!encendida) tira->strip_off();
+  }
+
+  // Datos del Victron al principal, como mucho cada 2 s
+  static uint32_t tVic = 0;
+  if (millis() - tVic > 2000 && (vicNuevo || vicClaveMal)) {
+    tVic = millis();
+    PktVic v = vicDatos;
+    v.magic = MAGIC; v.op = OP_VIC;
+    if (vicClaveMal && !vicNuevo) { v.estado = 0xFE; v.error = 0xFE; }
+    vicNuevo = false; vicClaveMal = false;
+    esp_now_send(bcast, (const uint8_t*)&v, sizeof(v));
   }
 }

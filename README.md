@@ -39,6 +39,12 @@ Servicio BLE `7e57c0de-a001-…5a01`, dispositivo `AC-Luces`:
 
 Efectos = ids de modo de [WS2812FX](https://github.com/kitesurfer1404/WS2812FX). Escenas y presets viven en la web-app (cambiarlas no requiere reflashear).
 
+## Panel Solar (Victron SmartSolar MPPT)
+
+Desde fw8, el ESP secundario escucha los anuncios BLE *Instant Readout* del Victron (AES-CTR), los descifra y los reenvía por ESP-NOW; la app los muestra en la pestaña **Solar** (potencia, batería, corriente, kWh del día, estado, salida de cargas).
+
+Configuración: en VictronConnect → producto → Info del producto → activar *Instant readout* y copiar la **clave de cifrado** (32 hex) → pegarla en la app en **Ajustes → Clave del Victron** → Guardar (ambos ESP se reinician). Clave vacía = función desactivada. Protocolo verificado contra [victron-ble](https://github.com/keshavdv/victron-ble).
+
 ## Publicar la web-app (una vez)
 
 1. Crear repo `luces-ac` en GitHub y subir este proyecto:
