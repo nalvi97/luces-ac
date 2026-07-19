@@ -46,6 +46,47 @@
   .vtile small{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:1.2px}
   .vtile b{font-size:21px;font-variant-numeric:tabular-nums}
 
+  /* ── Panel Solar ── */
+  :root{--info:#8ab8dc}
+  .scard{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px}
+  .slabel{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:1.2px}
+  .srow{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  .sval{font-size:17px;font-variant-numeric:tabular-nums}
+  .hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .hero-num{display:flex;align-items:baseline;gap:6px;margin-top:2px}
+  .hero-num b{font-size:46px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+  .hero-num span{color:var(--muted);font-size:18px;font-weight:600}
+  .chip{display:inline-flex;align-items:center;gap:7px;border-radius:999px;padding:7px 13px;
+    font-size:12.5px;font-weight:700;border:1px solid;flex:none}
+  .chip svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+  .chip.c-accent{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 45%,transparent);background:color-mix(in srgb,var(--accent) 10%,transparent)}
+  .chip.c-ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,transparent);background:color-mix(in srgb,var(--ok) 10%,transparent)}
+  .chip.c-info{color:var(--info);border-color:color-mix(in srgb,var(--info) 45%,transparent);background:color-mix(in srgb,var(--info) 10%,transparent)}
+  .chip.c-bad{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 45%,transparent);background:color-mix(in srgb,var(--bad) 12%,transparent)}
+  .chip.c-muted{color:var(--muted);border-color:var(--line);background:var(--surface-2)}
+  #flujo{width:100%;height:auto;margin-top:14px;display:block}
+  #flujo .nfill{fill:var(--surface-2);stroke:var(--line)}
+  #flujo .nico{stroke:var(--muted);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+  #flujo text{fill:var(--muted);font-size:9.5px;font-family:inherit;text-anchor:middle;letter-spacing:.5px}
+  #flujo .fpath{stroke:var(--line);stroke-width:2.5;fill:none;stroke-dasharray:2 7;stroke-linecap:round}
+  #flujo .fpath.on{stroke:var(--accent);animation:flujo .9s linear infinite}
+  @keyframes flujo{to{stroke-dashoffset:-9}}
+  .meter{position:relative;height:10px;border-radius:999px;overflow:hidden;display:flex;margin-top:10px}
+  .meter i{height:100%}
+  .meter .z1{flex:12;background:color-mix(in srgb,var(--bad) 30%,var(--surface-2))}
+  .meter .z2{flex:24;background:color-mix(in srgb,var(--accent) 26%,var(--surface-2))}
+  .meter .z3{flex:27;background:color-mix(in srgb,var(--ok) 26%,var(--surface-2))}
+  .meter .z4{flex:37;background:color-mix(in srgb,var(--info) 26%,var(--surface-2))}
+  .mdot{position:absolute;top:50%;width:16px;height:16px;border-radius:50%;background:#fff;
+    box-shadow:0 1px 5px rgba(0,0,0,.6);transform:translate(-50%,-50%);transition:left .6s}
+  .mwrap{position:relative;padding:3px 0}
+  .mticks{display:flex;justify-content:space-between;color:var(--muted);font-size:10px;
+    font-variant-numeric:tabular-nums;margin-top:6px}
+  #vSpark{width:100%;height:64px;display:block;margin-top:10px;touch-action:none}
+  .live{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ok);
+    box-shadow:0 0 6px var(--ok);animation:pulse 2s infinite;vertical-align:1px;margin-right:6px}
+  @media (prefers-reduced-motion:reduce){#flujo .fpath.on{animation:none}.live{animation:none}}
+
   section{display:flex;flex-direction:column;gap:10px}
   .sec-head h3{margin:0;font-size:11px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted)}
 
@@ -229,22 +270,83 @@
   </div><!-- /vLuces -->
 
   <div id="vSolar" class="vista" hidden>
-    <section>
-      <div class="sec-head"><h3>Solar · Victron MPPT</h3></div>
+
+    <!-- Estado vacío / guía -->
+    <section id="sHueco">
+      <div class="scard" style="text-align:center;padding:30px 20px">
+        <b id="sHuecoTit" style="font-size:16px">Panel solar</b>
+        <p id="sHuecoTxt" style="color:var(--muted);font-size:12.5px;line-height:1.65;margin:10px 0 16px">Esperando datos…</p>
+        <button class="btn primary" id="sHuecoBtn">Abrir Ajustes</button>
+      </div>
+    </section>
+
+    <!-- Panel con datos -->
+    <div id="sPanel" class="vista" hidden>
+      <section>
+        <div class="scard">
+          <div class="hero-top">
+            <div>
+              <small class="slabel">Potencia solar</small>
+              <div class="hero-num"><b id="vW">0</b><span>W</span></div>
+            </div>
+            <div class="chip c-muted" id="vChip"><svg viewBox="0 0 24 24" id="vChipIco"></svg><span id="vEst">—</span></div>
+          </div>
+          <svg id="flujo" viewBox="0 0 320 92" aria-hidden="true">
+            <g transform="translate(30,38)">
+              <circle r="17" class="nfill"/>
+              <circle r="5.5" class="nico"/>
+              <path class="nico" d="M0 -9v-2M0 9v2M-9 0h-2M9 0h2M-6.4 -6.4l-1.4 -1.4M6.4 6.4l1.4 1.4M6.4 -6.4l1.4 -1.4M-6.4 6.4l-1.4 1.4"/>
+            </g>
+            <path id="f1" class="fpath" d="M56 38 H 134"/>
+            <g transform="translate(160,38)">
+              <circle r="17" class="nfill"/>
+              <path class="nico" d="M-8 -5h13a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-13a2 2 0 0 1 -2 -2v-6a2 2 0 0 1 2 -2zM8 -2h2v4h-2"/>
+              <path class="nico" d="M-5 0h4"/>
+            </g>
+            <path id="f2" class="fpath" d="M186 38 H 264"/>
+            <g transform="translate(290,38)">
+              <circle r="17" class="nfill"/>
+              <path class="nico" d="M2 -9 L-4 1h5l-3 8 7 -10h-5z"/>
+            </g>
+            <text x="30" y="72">PANEL</text>
+            <text x="160" y="72">BATERÍA</text>
+            <text x="290" y="72">CARGAS</text>
+          </svg>
+        </div>
+      </section>
+
+      <section>
+        <div class="scard">
+          <div class="srow"><small class="slabel">Batería</small><b class="sval" id="vV">—</b></div>
+          <div class="mwrap">
+            <div class="meter"><i class="z1"></i><i class="z2"></i><i class="z3"></i><i class="z4"></i><div class="mdot" id="vVdot" style="left:0%"></div></div>
+            <div class="mticks"><span>11,5</span><span>12,5</span><span>13,5</span><span>14,8 V</span></div>
+          </div>
+          <div class="srow" style="margin-top:12px"><small class="slabel">Corriente de carga</small><b class="sval" id="vA">—</b></div>
+        </div>
+      </section>
+
       <div class="vgrid">
-        <div class="vtile"><small>Potencia solar</small><b id="vW">—</b></div>
-        <div class="vtile"><small>Batería</small><b id="vV">—</b></div>
-        <div class="vtile"><small>Corriente de carga</small><b id="vA">—</b></div>
         <div class="vtile"><small>Producido hoy</small><b id="vKwh">—</b></div>
-        <div class="vtile"><small>Estado</small><b id="vEst">—</b></div>
         <div class="vtile"><small>Salida de cargas</small><b id="vLoad">—</b></div>
       </div>
-      <p id="vNota" style="color:var(--muted);font-size:12.5px;margin:2px 0 0;line-height:1.5">Esperando datos…</p>
-    </section>
+
+      <section>
+        <div class="scard">
+          <div class="srow">
+            <small class="slabel">Potencia · esta sesión</small>
+            <small class="slabel" id="vSparkInfo" style="text-transform:none;letter-spacing:0">—</small>
+          </div>
+          <canvas id="vSpark" height="128"></canvas>
+        </div>
+      </section>
+    </div>
+
+    <p id="vNota" style="color:var(--muted);font-size:12.5px;margin:0;line-height:1.5"></p>
   </div><!-- /vSolar -->
 
   <div class="meta">
-    <span id="metaInfo"><b>app v2.0</b> · firmware —</span>
+    <span id="metaInfo"><b>app v2.1</b> · firmware —</span>
     <button id="cfgBtn">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
       Ajustes
@@ -295,13 +397,39 @@ const oInputs=[$("#o0"),$("#o1"),$("#o2")];
 const metaInfo=$("#metaInfo");
 const vkeyInput=$("#vkey");
 const vW=$("#vW"),vV=$("#vV"),vA=$("#vA"),vKwh=$("#vKwh"),vEst=$("#vEst"),vLoad=$("#vLoad"),vNota=$("#vNota");
-const VIC_ESTADOS={0:"Apagado",1:"Batería baja",2:"Fallo",3:"Bulk",4:"Absorción",5:"Flotación",6:"Almacenamiento",7:"Ecualización",245:"Arrancando",247:"Ecualización auto",252:"Control externo"};
+const vChip=$("#vChip"),vChipIco=$("#vChipIco"),vVdot=$("#vVdot"),vSpark=$("#vSpark"),vSparkInfo=$("#vSparkInfo");
+const sHueco=$("#sHueco"),sPanel=$("#sPanel"),sHuecoTit=$("#sHuecoTit"),sHuecoTxt=$("#sHuecoTxt"),sHuecoBtn=$("#sHuecoBtn");
+const f1=$("#f1"),f2=$("#f2");
+
+/* Estados Victron: etiqueta + color de estado + icono (nunca solo color) */
+const VIC_UI={
+  0:{t:"Apagado",c:"muted",i:"luna"},
+  1:{t:"Batería baja",c:"bad",i:"alerta"},
+  2:{t:"Fallo",c:"bad",i:"alerta"},
+  3:{t:"Bulk",c:"accent",i:"rayo"},
+  4:{t:"Absorción",c:"info",i:"bateria"},
+  5:{t:"Flotación",c:"ok",i:"check"},
+  6:{t:"Almacenamiento",c:"ok",i:"check"},
+  7:{t:"Ecualización",c:"info",i:"bateria"},
+  245:{t:"Arrancando",c:"muted",i:"punto"},
+  247:{t:"Ecualización auto",c:"info",i:"bateria"},
+  252:{t:"Control externo",c:"muted",i:"punto"}
+};
+const ICONOS_VIC={
+  rayo:'<path d="M13 3 5 14h5l-1 7 8-11h-5z"/>',
+  bateria:'<rect x="3" y="8" width="15" height="8" rx="2"/><path d="M21 10v4M6.5 10.5v3M10 10.5v3"/>',
+  check:'<path d="M4 12l5 5 10-10"/>',
+  alerta:'<path d="M12 3 2 20h20zM12 10v5M12 17.5v.5"/>',
+  luna:'<path d="M20 13A8 8 0 1 1 11 4a6.5 6.5 0 0 0 9 9z"/>',
+  punto:'<circle cx="12" cy="12" r="3"/>'
+};
 
 /* Pestañas Luces / Solar */
 document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{
   document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-pressed",String(t===b)));
   $("#vLuces").hidden=b.dataset.t!=="luces";
   $("#vSolar").hidden=b.dataset.t!=="solar";
+  if(b.dataset.t==="solar")setTimeout(dibujarSpark,50);   // el canvas mide 0 mientras está oculto
 }));
 const ORDENES=["GRB (normal)","RGB","BGR","BRG","GBR","RBG"];
 oInputs.forEach(sel=>{
@@ -407,8 +535,8 @@ function estadoDesde(dv){
     zonesEl.querySelector('[data-z="2"]').classList.toggle("offline",!vivo);
   }
   metaInfo.innerHTML=(fw<FW_ESPERADO)
-    ? `<b>app v2.0</b> · <span style="color:var(--bad)">firmware v${fw} antiguo — reflashea principal-esp32.bin</span>`
-    : `<b>app v2.0</b> · firmware v${fw}${amb}`;
+    ? `<b>app v2.1</b> · <span style="color:var(--bad)">firmware v${fw} antiguo — reflashea principal-esp32.bin</span>`
+    : `<b>app v2.1</b> · firmware v${fw}${amb}`;
   syncUI();
 }
 
@@ -471,23 +599,103 @@ setInterval(async()=>{
 },4000);
 
 /* ═══════════ Panel Solar (Victron) ═══════════ */
+function hueco(tit,txt){
+  sPanel.hidden=true;sHueco.hidden=false;
+  sHuecoTit.textContent=tit;sHuecoTxt.textContent=txt;
+  vNota.textContent="";
+}
+sHuecoBtn.addEventListener("click",()=>dlg.showModal());
+
 async function leerVic(){
-  if(!chVic)return;
+  if(!chVic){hueco("Requiere firmware v8","Actualiza los dos ESP por OTA (botones en Ajustes) para activar el panel solar.");return}
   let dv;try{dv=await chVic.readValue()}catch(e){return}
   if(dv.byteLength<13)return;
   const edad=dv.getUint8(0),estado=dv.getUint8(1),err=dv.getUint8(2);
-  if(estado===0xFE){vNota.textContent="Clave Victron incorrecta — revísala en Ajustes.";return}
-  if(edad===255){vNota.textContent="Sin datos del Victron aún. ¿Clave puesta en Ajustes e Instant Readout activado en VictronConnect?";return}
+  if(estado===0xFE){hueco("Clave incorrecta","La clave no coincide con la de tu Victron. Cópiala de VictronConnect → Info del producto → Instant readout.");return}
+  if(edad===255){
+    if(!vkeyInput.value)hueco("Conecta tu Victron","Activa Instant readout en VictronConnect, copia la clave de cifrado (32 hex) y pégala en Ajustes.");
+    else hueco("Buscando el Victron…","La clave está puesta pero aún no llegan datos. Comprueba que Instant readout está activado y que el regulador está a alcance del ESP de Ambiente.");
+    return;
+  }
+  sHueco.hidden=true;sPanel.hidden=false;
+
   const vbat=dv.getInt16(3,true),ibat=dv.getInt16(5,true);
   const w=dv.getUint16(7,true),whdia=dv.getUint16(9,true),load=dv.getUint16(11,true);
-  vW.textContent=(w===0xFFFF?"—":w+" W");
-  vV.textContent=(vbat===0x7FFF?"—":(vbat/100).toFixed(2)+" V");
-  vA.textContent=(ibat===0x7FFF?"—":(ibat/10).toFixed(1)+" A");
-  vKwh.textContent=(whdia===0xFFFF?"—":(whdia/100).toFixed(2)+" kWh");
-  vEst.textContent=(err&&err!==0xFF)?`Error ${err}`:(VIC_ESTADOS[estado]??`Estado ${estado}`);
-  vLoad.textContent=(load===0x1FF?"—":(load/10).toFixed(1)+" A");
-  vNota.textContent=edad<=6?"Datos en vivo del regulador.":`Último dato hace ${edad} s.`;
+  const wOk=w!==0xFFFF,vOk=vbat!==0x7FFF,iOk=ibat!==0x7FFF,lOk=load!==0x1FF;
+
+  vW.textContent=wOk?w:"—";
+  vV.textContent=vOk?(vbat/100).toFixed(2)+" V":"—";
+  vA.textContent=iOk?(ibat/10).toFixed(1)+" A":"—";
+  vKwh.textContent=whdia!==0xFFFF?(whdia/100).toFixed(2)+" kWh":"—";
+  vLoad.textContent=lOk?(load/10).toFixed(1)+" A":"—";
+  if(vOk){
+    const pct=Math.max(0,Math.min(100,(vbat/100-11.5)/(14.8-11.5)*100));
+    vVdot.style.left=pct+"%";
+  }
+  const ui=(err&&err!==0xFF)?{t:`Error ${err}`,c:"bad",i:"alerta"}:(VIC_UI[estado]||{t:`Estado ${estado}`,c:"muted",i:"punto"});
+  vEst.textContent=ui.t;
+  vChip.className="chip c-"+ui.c;
+  vChipIco.innerHTML=ICONOS_VIC[ui.i]||ICONOS_VIC.punto;
+
+  f1.classList.toggle("on",wOk&&w>0);
+  f2.classList.toggle("on",lOk&&load>0);
+
+  if(edad<=6&&wOk)pushHist(w);
+  vNota.innerHTML=edad<=6?'<span class="live"></span>Datos en vivo del regulador':`Último dato hace ${edad} s`;
 }
+
+/* Sparkline de potencia (historial de la sesión, muestreo ≥3 s, ventana 60 min) */
+const hist=[];
+let sparkTouch=false;
+function pushHist(w){
+  const t=Date.now();
+  if(hist.length&&t-hist[hist.length-1].t<3000)return;
+  hist.push({t,w});
+  while(hist.length&&hist[0].t<t-3600000)hist.shift();
+  dibujarSpark();
+}
+function dibujarSpark(){
+  const dpr=window.devicePixelRatio||1,cw=vSpark.clientWidth,ch=64;
+  if(!cw)return;
+  vSpark.width=cw*dpr;vSpark.height=ch*dpr;
+  const ctx=vSpark.getContext("2d");ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,cw,ch);
+  if(hist.length<2){vSparkInfo.textContent="recopilando…";return}
+  const css=getComputedStyle(document.documentElement);
+  const cAcc=css.getPropertyValue("--accent").trim(),cLin=css.getPropertyValue("--line").trim(),
+        cMut=css.getPropertyValue("--muted").trim(),cSup=css.getPropertyValue("--surface").trim();
+  const t0=hist[0].t,t1=hist[hist.length-1].t;
+  const wMax=Math.max(10,...hist.map(p=>p.w));
+  const X=t=>(t-t0)/Math.max(1,t1-t0)*(cw-8)+4;
+  const Y=w=>ch-6-(w/wMax)*(ch-18);
+  ctx.strokeStyle=cLin;ctx.globalAlpha=.55;ctx.lineWidth=1;
+  [Y(0),Y(wMax)].forEach(y=>{ctx.beginPath();ctx.moveTo(4,y);ctx.lineTo(cw-4,y);ctx.stroke()});
+  ctx.globalAlpha=1;
+  ctx.beginPath();
+  hist.forEach((p,i)=>{const x=X(p.t),y=Y(p.w);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});
+  ctx.strokeStyle=cAcc;ctx.lineWidth=2;ctx.lineJoin="round";ctx.stroke();
+  ctx.lineTo(X(t1),Y(0));ctx.lineTo(X(t0),Y(0));ctx.closePath();
+  ctx.globalAlpha=.13;ctx.fillStyle=cAcc;ctx.fill();ctx.globalAlpha=1;
+  const px=X(t1),py=Y(hist[hist.length-1].w);
+  ctx.beginPath();ctx.arc(px,py,3.5,0,Math.PI*2);
+  ctx.fillStyle=cAcc;ctx.fill();ctx.lineWidth=2;ctx.strokeStyle=cSup;ctx.stroke();
+  ctx.fillStyle=cMut;ctx.font="10px ui-rounded,-apple-system,sans-serif";
+  ctx.fillText(`máx ${wMax} W`,6,Y(wMax)+11);
+  if(!sparkTouch){
+    const mins=Math.max(1,Math.round((t1-t0)/60000));
+    vSparkInfo.textContent=`últimos ${mins} min`;
+  }
+}
+vSpark.addEventListener("pointermove",e=>{
+  if(hist.length<2)return;
+  const r=vSpark.getBoundingClientRect();
+  const t=hist[0].t+(e.clientX-r.left)/r.width*(hist[hist.length-1].t-hist[0].t);
+  let cerca=hist[0];
+  for(const p of hist)if(Math.abs(p.t-t)<Math.abs(cerca.t-t))cerca=p;
+  sparkTouch=true;
+  vSparkInfo.textContent=`${cerca.w} W · ${new Date(cerca.t).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})}`;
+});
+vSpark.addEventListener("pointerleave",()=>{sparkTouch=false;dibujarSpark()});
 
 /* Desconectar manualmente */
 $("#btnDesc").addEventListener("click",()=>{
