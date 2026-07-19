@@ -15,6 +15,8 @@
 #include <esp_now.h>
 #include <esp_wifi.h>
 #include <WS2812FX.h>
+#include <WebServer.h>
+#include <Update.h>
 
 #define PIN_TIRA   16
 #define LEDS_DEF   60
@@ -24,7 +26,8 @@
 #define OP_SET    1
 #define OP_CONFIG 2
 #define OP_HB     4   // latido: "estoy vivo", lo escucha el principal
-#define FW_VER    6   // viaja en el campo count del latido
+#define OP_OTA    5   // entra en modo actualización por WiFi
+#define FW_VER    7   // viaja en el campo count del latido
 
 struct __attribute__((packed)) Pkt {
   uint16_t magic;
@@ -54,6 +57,7 @@ Preferences prefs;
 WS2812FX* tira;
 uint8_t bcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 bool encendida = true;   // estado lógico de la tira (para el barrido antifantasma)
+volatile bool otaPedido = false;
 
 // El callback de ESP-NOW corre en el hilo WiFi: guardamos y aplicamos en loop()
 volatile bool pendiente = false;
@@ -69,6 +73,7 @@ void alRecibir(const esp_now_recv_info_t* info, const uint8_t* data, int len) {
 }
 
 void aplicar(const Pkt& p) {
+  if (p.op == OP_OTA) { otaPedido = true; return; }
   if (p.op == OP_CONFIG) {
     Serial.printf("[RX] CONFIG: %u LEDs, orden %u -> guardo y reinicio\n", p.count, p.orden);
     prefs.putUShort("n2", p.count);
@@ -87,6 +92,54 @@ void aplicar(const Pkt& p) {
   tira->setColor(((uint32_t)p.r << 16) | ((uint32_t)p.g << 8) | p.b);
   tira->setMode(p.fx);
   tira->setSpeed(p.speed);
+}
+
+// ── Modo actualización OTA (idéntico al del principal, WiFi propia) ──
+WebServer* otaSrv = nullptr;
+uint32_t otaUltimo = 0;
+
+void entrarModoOTA() {
+  Serial.println("[OTA] WiFi 'LucesAC-OTA-AMB' (clave luces-ac) -> http://192.168.4.1");
+  esp_now_deinit();
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP("LucesAC-OTA-AMB", "luces-ac");
+
+  if (!tira->isRunning()) tira->start();
+  tira->setBrightness(40); tira->setColor(0x2040FF); tira->setMode(FX_MODE_STATIC);
+
+  otaSrv = new WebServer(80);
+  otaSrv->on("/", HTTP_GET, []() {
+    otaUltimo = millis();
+    otaSrv->send(200, "text/html",
+      "<!doctype html><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
+      "<title>Luces AC OTA</title>"
+      "<body style='font-family:sans-serif;background:#14110c;color:#f2e9dc;text-align:center;padding-top:12vh'>"
+      "<h2>Luces AC &middot; ambiente</h2><p>Sube <b>ota-secundario.bin</b></p>"
+      "<form method='POST' action='/update' enctype='multipart/form-data'>"
+      "<input type='file' name='fw' accept='.bin'><br><br>"
+      "<input type='submit' value='Actualizar' style='padding:10px 24px'></form>");
+  });
+  otaSrv->on("/update", HTTP_POST, []() {
+    bool ok = !Update.hasError();
+    otaSrv->send(200, "text/html", ok ? "<h2>Actualizado. Reiniciando&hellip;</h2>" : "<h2>Error al actualizar</h2>");
+    delay(800);
+    ESP.restart();
+  }, []() {
+    otaUltimo = millis();
+    HTTPUpload& up = otaSrv->upload();
+    if (up.status == UPLOAD_FILE_START) Update.begin(UPDATE_SIZE_UNKNOWN);
+    else if (up.status == UPLOAD_FILE_WRITE) Update.write(up.buf, up.currentSize);
+    else if (up.status == UPLOAD_FILE_END) Update.end(true);
+  });
+  otaSrv->begin();
+  otaUltimo = millis();
+
+  while (true) {
+    otaSrv->handleClient();
+    tira->service();
+    if (millis() - otaUltimo > 300000UL) ESP.restart();
+    delay(2);
+  }
 }
 
 void setup() {
@@ -120,6 +173,8 @@ void setup() {
 }
 
 void loop() {
+  if (otaPedido) { otaPedido = false; entrarModoOTA(); }
+
   tira->service();
   if (pendiente) {
     pendiente = false;

@@ -71,6 +71,23 @@ Ambos firmwares están **compilados y verificados** (core esp32 3.3.10, NimBLE-A
 3. Abrir el `.ino` → placa "ESP32 Dev Module" o "ESP32S3 Dev Module" según chip → Subir.
    (En S3, activar *USB CDC On Boot* para ver el monitor serie.)
 
+### Actualizaciones posteriores: OTA por WiFi (sin cables)
+
+Desde fw7, cada ESP puede actualizarse sin desmontarlo:
+
+1. En la app: **Ajustes → "OTA principal"** (o **"OTA ambiente"**). Las tiras de ese ESP se ponen en azul tenue.
+2. Conectarse a la WiFi que abre el ESP: **`LucesAC-OTA`** (o `LucesAC-OTA-AMB`), clave **`luces-ac`**.
+3. Abrir **http://192.168.4.1** y subir **`binarios/ota-principal.bin`** (o `ota-secundario.bin`).
+4. El ESP se reinicia solo con el firmware nuevo. Si no se sube nada en 5 min, vuelve a modo normal.
+
+Ojo a la diferencia entre binarios:
+- `principal-esp32.bin` / `secundario-esp32.bin` → imagen completa, **solo para flasheo por cable** a dirección `0x0`. Borra la configuración guardada (nº LEDs, orden de color).
+- `ota-principal.bin` / `ota-secundario.bin` → **solo para OTA** por la página web. Conserva la configuración.
+
+La compilación usa particiones `min_spiffs` (dos slots OTA de 1,9 MB):
+`arduino-cli compile -b esp32:esp32:esp32:PartitionScheme=min_spiffs ...`
+El salto a fw7 desde versiones anteriores debe hacerse **por cable** (cambia la tabla de particiones); a partir de ahí, siempre OTA.
+
 ### Comprobación tras flashear el principal
 
 Sin conectar tiras aún: en Bluefy abrir `https://nalvi97.github.io/luces-ac/` → Conectar → debe aparecer **AC-Luces**. Si conecta, todo el camino BLE funciona.

@@ -19,6 +19,8 @@
 #include <esp_wifi.h>
 #include <WS2812FX.h>
 #include <NimBLEDevice.h>
+#include <WebServer.h>
+#include <Update.h>
 
 // ── Pines y valores por defecto ─────────────────────────────
 #define PIN_TIRA_A 16
@@ -40,7 +42,8 @@ static const char* UUID_CFG = "7e57c0de-a004-4f0e-9a2b-1c2d3e4f5a01";
 #define OP_CONFIG 2
 #define OP_POWER  3
 #define OP_HB     4   // latido del secundario
-#define FW_VER    6   // se publica en el primer byte del estado BLE
+#define OP_OTA    5   // entra en modo actualización por WiFi
+#define FW_VER    7   // se publica en el primer byte del estado BLE
 
 struct __attribute__((packed)) Pkt {
   uint16_t magic;
@@ -80,6 +83,7 @@ NimBLECharacteristic* chEst = nullptr;
 uint8_t bcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 volatile uint32_t ultimoHB = 0;   // último latido ESP-NOW del secundario
 volatile uint8_t  verSec = 0;     // versión de firmware que anuncia el secundario
+volatile bool otaPedido = false;  // la app ha pedido entrar en modo OTA
 
 // ── Estado → BLE (27 bytes: versión + 3 zonas × 8 + edad latido + ver. secundario) ──
 void ponerEstado(bool notificar) {
@@ -164,6 +168,10 @@ class CmdCB : public NimBLECharacteristicCallbacks {
     if (p.magic != MAGIC) return;
     if (p.op == OP_SET) procesarSet(p);
     else if (p.op == OP_POWER) procesarPower(p);
+    else if (p.op == OP_OTA) {
+      if (p.mask & 0b100) enviarEspNow(p);   // reenvía la orden al secundario
+      if (p.mask & 0b011) otaPedido = true;  // este ESP entra en OTA desde loop()
+    }
   }
 };
 
@@ -207,6 +215,60 @@ void vigilarInterruptores() {
   }
 }
 
+// ── Modo actualización OTA ──────────────────────────────────
+// Levanta una WiFi propia con una página para subir el firmware,
+// sin sacar el ESP de su sitio. 5 min sin actividad → reinicia a normal.
+WebServer* otaSrv = nullptr;
+uint32_t otaUltimo = 0;
+
+void entrarModoOTA() {
+  Serial.println("[OTA] WiFi 'LucesAC-OTA' (clave luces-ac) -> http://192.168.4.1");
+  NimBLEDevice::deinit(true);
+  esp_now_deinit();
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP("LucesAC-OTA", "luces-ac");
+
+  // Señal visual: tiras en azul tenue mientras dure el modo OTA
+  for (WS2812FX* t : {tiraA, tiraB}) {
+    if (!t->isRunning()) t->start();
+    t->setBrightness(40); t->setColor(0x2040FF); t->setMode(FX_MODE_STATIC);
+  }
+
+  otaSrv = new WebServer(80);
+  otaSrv->on("/", HTTP_GET, []() {
+    otaUltimo = millis();
+    otaSrv->send(200, "text/html",
+      "<!doctype html><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
+      "<title>Luces AC OTA</title>"
+      "<body style='font-family:sans-serif;background:#14110c;color:#f2e9dc;text-align:center;padding-top:12vh'>"
+      "<h2>Luces AC &middot; principal</h2><p>Sube <b>ota-principal.bin</b></p>"
+      "<form method='POST' action='/update' enctype='multipart/form-data'>"
+      "<input type='file' name='fw' accept='.bin'><br><br>"
+      "<input type='submit' value='Actualizar' style='padding:10px 24px'></form>");
+  });
+  otaSrv->on("/update", HTTP_POST, []() {
+    bool ok = !Update.hasError();
+    otaSrv->send(200, "text/html", ok ? "<h2>Actualizado. Reiniciando&hellip;</h2>" : "<h2>Error al actualizar</h2>");
+    delay(800);
+    ESP.restart();
+  }, []() {
+    otaUltimo = millis();
+    HTTPUpload& up = otaSrv->upload();
+    if (up.status == UPLOAD_FILE_START) Update.begin(UPDATE_SIZE_UNKNOWN);
+    else if (up.status == UPLOAD_FILE_WRITE) Update.write(up.buf, up.currentSize);
+    else if (up.status == UPLOAD_FILE_END) Update.end(true);
+  });
+  otaSrv->begin();
+  otaUltimo = millis();
+
+  while (true) {  // el modo OTA es exclusivo; se sale siempre reiniciando
+    otaSrv->handleClient();
+    tiraA->service(); tiraB->service();
+    if (millis() - otaUltimo > 300000UL) ESP.restart();
+    delay(2);
+  }
+}
+
 // ── Setup ───────────────────────────────────────────────────
 void setup() {
   Serial.begin(115200);
@@ -219,8 +281,11 @@ void setup() {
   ordenes[1] = prefs.getUChar("o1", 0);
   ordenes[2] = prefs.getUChar("o2", 0);
 
-  // Estado inicial: blanco cálido suave (los interruptores mandan)
-  for (int i = 0; i < 3; i++) zonas[i] = {true, 255, 170, 80, 150, 0, 1000};
+  // Al recibir corriente: las tiras del techo (A y B) arrancan APAGADAS
+  // (se encienden con interruptor o app); la de Ambiente sí arranca sola.
+  zonas[0] = {false, 255, 170, 80, 150, 0, 1000};
+  zonas[1] = {false, 255, 170, 80, 150, 0, 1000};
+  zonas[2] = {true,  255, 170, 80, 150, 0, 1000};
 
   tiraA = new WS2812FX(numLeds[0], PIN_TIRA_A, ordenTipo(ordenes[0]));
   tiraB = new WS2812FX(numLeds[1], PIN_TIRA_B, ordenTipo(ordenes[1]));
@@ -281,6 +346,8 @@ void setup() {
 }
 
 void loop() {
+  if (otaPedido) { otaPedido = false; entrarModoOTA(); }
+
   tiraA->service();
   tiraB->service();
   vigilarInterruptores();

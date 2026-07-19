@@ -208,7 +208,7 @@
   </section>
 
   <div class="meta">
-    <span id="metaInfo"><b>app v1.6</b> · firmware —</span>
+    <span id="metaInfo"><b>app v1.7</b> · firmware —</span>
     <button id="cfgBtn">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
       Ajustes
@@ -226,6 +226,11 @@
   <div class="field"><label for="o0">Orden color · Izq</label><select id="o0"></select></div>
   <div class="field"><label for="o1">Orden color · Dcha</label><select id="o1"></select></div>
   <div class="field"><label for="o2">Orden color · Ambiente</label><select id="o2"></select></div>
+  <p style="margin:14px 0 10px">Actualizar firmware por WiFi (OTA): el ESP abre su propia red <b>LucesAC-OTA</b> (clave <b>luces-ac</b>) con una página para subir el <code>.bin</code>. Sin cables ni desmontar nada.</p>
+  <div class="dlg-actions" style="justify-content:flex-start;margin-top:0;margin-bottom:14px">
+    <button class="btn ghost" id="otaP">OTA principal</button>
+    <button class="btn ghost" id="otaS">OTA ambiente</button>
+  </div>
   <div class="dlg-actions">
     <button class="btn ghost" id="cfgClose">Cerrar</button>
     <button class="btn primary" id="cfgSave">Guardar en el ESP</button>
@@ -253,14 +258,14 @@ const ORDENES=["GRB (normal)","RGB","BGR","BRG","GBR","RBG"];
 oInputs.forEach(sel=>{
   ORDENES.forEach((n,v)=>{const o=document.createElement("option");o.value=v;o.textContent=n;sel.appendChild(o)});
 });
-const FW_ESPERADO=6;
+const FW_ESPERADO=7;
 
 /* ═══════════ Constantes de protocolo (== firmware) ═══════════ */
 const UUID_SVC="7e57c0de-a001-4f0e-9a2b-1c2d3e4f5a01";
 const UUID_CMD="7e57c0de-a002-4f0e-9a2b-1c2d3e4f5a01";
 const UUID_EST="7e57c0de-a003-4f0e-9a2b-1c2d3e4f5a01";
 const UUID_CFG="7e57c0de-a004-4f0e-9a2b-1c2d3e4f5a01";
-const MAGIC=0xAC1E, OP_SET=1, OP_POWER=3;
+const MAGIC=0xAC1E, OP_SET=1, OP_POWER=3, OP_OTA=5;
 
 /* Modos WS2812FX (id real de la librería) */
 const FX=[[0,"Estático"],[2,"Respirar"],[3,"Barrido"],[11,"Arcoíris"],[12,"Arcoíris ciclo"],
@@ -352,8 +357,8 @@ function estadoDesde(dv){
     zonesEl.querySelector('[data-z="2"]').classList.toggle("offline",!vivo);
   }
   metaInfo.innerHTML=(fw<FW_ESPERADO)
-    ? `<b>app v1.6</b> · <span style="color:var(--bad)">firmware v${fw} antiguo — reflashea principal-esp32.bin</span>`
-    : `<b>app v1.6</b> · firmware v${fw}${amb}`;
+    ? `<b>app v1.7</b> · <span style="color:var(--bad)">firmware v${fw} antiguo — reflashea principal-esp32.bin</span>`
+    : `<b>app v1.7</b> · firmware v${fw}${amb}`;
   syncUI();
 }
 
@@ -397,6 +402,7 @@ function desconectado(){
   connPill.classList.remove("on");
   cover.classList.remove("oculto");
   coverBtn.textContent="Reconectar";
+  if(otaInfo){coverErr.textContent=otaInfo;otaInfo=null}
 }
 coverBtn.addEventListener("click",conectar);
 connPill.addEventListener("click",()=>{ if(!chCmd)conectar() });
@@ -585,6 +591,21 @@ $("#cfgSave").addEventListener("click",async()=>{
   dlg.close();
   toast("Guardado — el ESP se reinicia…");
 });
+
+/* ═══════════ OTA ═══════════ */
+let otaInfo=null;
+function pedirOTA(mask,ssid,fichero){
+  if(!chCmd){toast("Sin conexión");return}
+  const b=new ArrayBuffer(15),d=new DataView(b);
+  d.setUint16(0,MAGIC,true);d.setUint8(2,OP_OTA);d.setUint8(3,mask);
+  enviarRaw(b);
+  dlg.close();
+  const msg=`Modo OTA activado. Conéctate a la WiFi «${ssid}» (clave: luces-ac) y abre http://192.168.4.1 para subir ${fichero}. Las tiras de ese ESP se ponen en azul tenue mientras dura. Al terminar (o tras 5 min sin actividad) se reinicia solo.`;
+  if(mask&0b011)otaInfo=msg;   // el principal se desconectará: instrucciones a la portada
+  alert(msg);
+}
+$("#otaP").addEventListener("click",()=>pedirOTA(0b001,"LucesAC-OTA","ota-principal.bin"));
+$("#otaS").addEventListener("click",()=>pedirOTA(0b100,"LucesAC-OTA-AMB","ota-secundario.bin"));
 
 /* ═══════════ Toast ═══════════ */
 let toastTimer;
